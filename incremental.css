@@ -1734,6 +1734,7 @@ body.incremental-game-mode #hud {
 }
 
 .incremental-story-overlay {
+  box-sizing: border-box;
   position: fixed;
   inset: 0;
   z-index: 1200;
@@ -1745,6 +1746,7 @@ body.incremental-game-mode #hud {
 }
 
 .incremental-story-dialog {
+  box-sizing: border-box;
   width: min(470px, 100%);
   padding: 24px;
   border: 1px solid #95643e;
@@ -2529,7 +2531,7 @@ body.incremental-game-mode #hud {
 
 .incremental-crew-card select {
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
   padding: 8px 10px;
   border: 1px solid #6b513e;
   border-radius: 7px;

@@ -80,7 +80,9 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
   await page.locator('#incremental-tab-mine').focus();
   await page.keyboard.press('End');
   await expect(page.getByRole('heading', { name: 'Miner Skills' })).toBeVisible();
-  const powerSkill = page.locator('.incremental-skill-card', { hasText: 'Mining Power' });
+  const powerSkill = page.locator('.incremental-skill-card').filter({
+    has: page.getByRole('heading', { name: 'Mining Power', exact: true }),
+  });
   await powerSkill.getByRole('button', { name: 'Spend 1 Point' }).click();
   await expect(powerSkill).toContainText('Rank 1 / 10');
   await expect(page.locator('#incremental-skill-points')).toHaveText('0');
@@ -138,6 +140,7 @@ test('ore sales, Miller equipment, and scratch tickets persist without bypassing
     save.payload.materials.stone = 12;
     save.payload.milestones = [
       'blackstone-first-shift',
+      'blackstone-level-two',
       'contract-within-reach',
       'contract-bought',
     ];
@@ -665,6 +668,14 @@ test.describe('touch viewport', () => {
   test('miner target remains touch-sized and contained on a phone viewport', async ({ page }) => {
     await page.goto('/');
     await page.locator('#incremental-story-continue').click();
+    const navButtons = page.locator('.incremental-nav [role="tab"]');
+    await expect(navButtons).toHaveCount(6);
+    for (let index = 0; index < await navButtons.count(); index += 1) {
+      const navButtonBox = await navButtons.nth(index).boundingBox();
+      expect(navButtonBox.height).toBeGreaterThanOrEqual(44);
+      expect(navButtonBox.x).toBeGreaterThanOrEqual(0);
+      expect(navButtonBox.x + navButtonBox.width).toBeLessThanOrEqual(390);
+    }
     const target = page.locator('#incremental-mining-target');
     await expect(target).toBeVisible();
     const box = await target.boundingBox();
@@ -680,6 +691,12 @@ test.describe('touch viewport', () => {
     const navBox = await page.locator('#incremental-tab-store').boundingBox();
     expect(navBox.height).toBeGreaterThanOrEqual(44);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await page.locator('#incremental-tab-equipment').tap();
+    await expect(page.getByRole('heading', { name: 'Miner Equipment' })).toBeVisible();
+    await page.locator('#incremental-tab-skills').tap();
+    await expect(page.getByRole('heading', { name: 'Miner Skills' })).toBeVisible();
+    await page.locator('#incremental-tab-mine').tap();
+    await expect(target).toBeVisible();
 
     await page.addInitScript(() => {
       if (sessionStorage.getItem('mobile-company-seeded')) return;
@@ -701,6 +718,7 @@ test.describe('touch viewport', () => {
         lifetimeInvestment: 0,
       };
       save.payload.generators['hired-miner'] = 1;
+      save.payload.materials.stone = 12;
       save.payload.lastPlayed = Date.now() - (60 * 60 * 1000);
       save.payload.milestones = [
         'blackstone-first-shift',
@@ -721,6 +739,10 @@ test.describe('touch viewport', () => {
     await page.locator('#incremental-offline-continue').tap();
     await expect(page.locator('#incremental-crew-operations')).toBeVisible();
     await expect(page.locator('.incremental-crew-card')).toHaveCount(3);
+    const assignmentControl = page.locator('.incremental-crew-card select').first();
+    await expect(assignmentControl).toBeEnabled();
+    const assignmentControlBox = await assignmentControl.boundingBox();
+    expect(assignmentControlBox.height).toBeGreaterThanOrEqual(44);
     const crewCardBox = await page.locator('.incremental-crew-card').first().boundingBox();
     expect(crewCardBox.x).toBeGreaterThanOrEqual(0);
     expect(crewCardBox.x + crewCardBox.width).toBeLessThanOrEqual(390);
@@ -730,6 +752,9 @@ test.describe('touch viewport', () => {
     const companyCardBox = await companyCard.boundingBox();
     expect(companyCardBox.x).toBeGreaterThanOrEqual(0);
     expect(companyCardBox.x + companyCardBox.width).toBeLessThanOrEqual(390);
+    const companyPurchaseButton = companyCard.getByRole('button').first();
+    const companyPurchaseButtonBox = await companyPurchaseButton.boundingBox();
+    expect(companyPurchaseButtonBox.height).toBeGreaterThanOrEqual(44);
     const competitionCardBox = await page.locator('#incremental-competition-panel').boundingBox();
     expect(competitionCardBox.x).toBeGreaterThanOrEqual(0);
     expect(competitionCardBox.x + competitionCardBox.width).toBeLessThanOrEqual(390);
@@ -739,6 +764,21 @@ test.describe('touch viewport', () => {
     const mineCardBox = await mineCard.boundingBox();
     expect(mineCardBox.x).toBeGreaterThanOrEqual(0);
     expect(mineCardBox.x + mineCardBox.width).toBeLessThanOrEqual(390);
+    await page.locator('#incremental-tab-mine').tap();
+    const mobileSellButton = page.locator('.incremental-resource-row', { hasText: 'Stone' })
+      .getByRole('button', { name: 'Sell 1', exact: true });
+    await expect(mobileSellButton).toBeEnabled();
+    const mobileSellButtonBox = await mobileSellButton.boundingBox();
+    expect(mobileSellButtonBox.height).toBeGreaterThanOrEqual(44);
+    const cashBeforeMobileSale = await page.evaluate(() => {
+      const save = JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1'));
+      return save.payload.cash;
+    });
+    await mobileSellButton.tap();
+    await expect.poll(() => page.evaluate(() => {
+      const save = JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1'));
+      return save.payload.cash;
+    })).toBe(cashBeforeMobileSale + 3);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   });
 });
