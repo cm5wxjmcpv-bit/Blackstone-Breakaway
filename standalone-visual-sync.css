@@ -1,0 +1,150 @@
+/* Visual compatibility layer: ports the standalone mining art/HUD into the v0.9 cinematic branch without replacing story/runtime logic. */
+
+.incremental-mine-hud {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.incremental-mine-xp-progress {
+  overflow: hidden;
+  width: 100%;
+  height: 5px;
+  background: rgba(4, 7, 5, 0.78);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.incremental-mine-xp-progress > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #3ca76d, #78e5a4);
+  box-shadow: 0 0 10px rgba(92, 225, 144, 0.44);
+  transition: width 140ms ease-out, background 140ms ease-out;
+}
+
+.incremental-mine-xp-progress.has-skill-point > span {
+  background: linear-gradient(90deg, #d89a21, #ffd463);
+  box-shadow: 0 0 12px rgba(255, 196, 62, 0.6);
+}
+
+.incremental-progress.has-skill-point > span {
+  background: linear-gradient(90deg, #d89a21, #ffd463);
+  box-shadow: 0 0 10px rgba(255, 196, 62, 0.48);
+}
+
+.incremental-mine-cash {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  color: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: clamp(18px, 2.4vw, 28px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95);
+}
+
+.incremental-miner.standalone-miner-upgraded {
+  left: clamp(4px, 3%, 32px);
+  bottom: 16px;
+  width: clamp(210px, 29%, 280px);
+  height: 370px;
+  filter: drop-shadow(0 16px 12px rgba(0, 0, 0, 0.48));
+}
+
+.incremental-miner-art-sync {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: left bottom;
+  transform-origin: 58% 78%;
+  user-select: none;
+  pointer-events: none;
+}
+
+.incremental-miner-art-sync[hidden] {
+  display: none;
+}
+
+.incremental-miner.standalone-miner-upgraded > .incremental-miner-character,
+.incremental-miner.standalone-miner-upgraded > .incremental-miner-tool {
+  display: none;
+}
+
+.incremental-miner-art-sync.is-swinging {
+  animation: standalone-miner-lunge 180ms ease-out;
+}
+
+.incremental-deposit-art-sync {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 22px 18px rgba(0, 0, 0, 0.55));
+}
+
+.incremental-deposit-art-sync[hidden] {
+  display: none;
+}
+
+.incremental-deposit-target.has-standalone-deposit-art .incremental-rock {
+  inset: 2px -12px 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.incremental-deposit-target.has-standalone-deposit-art .incremental-rock-facet,
+.incremental-deposit-target.has-standalone-deposit-art .incremental-deposit-icon {
+  display: none;
+}
+
+@keyframes standalone-miner-lunge {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  55% { transform: translate(9px, 4px) rotate(2deg); }
+}
+
+@media (max-width: 620px) {
+  .incremental-nav {
+    position: static !important;
+  }
+
+  .incremental-mine-cash {
+    top: 13px;
+    right: 12px;
+    font-size: 19px;
+  }
+
+  .incremental-miner.standalone-miner-upgraded {
+    left: 4px;
+    bottom: 33px;
+    transform: scale(0.72);
+    transform-origin: bottom left;
+  }
+
+  .incremental-deposit-target.has-standalone-deposit-art {
+    left: 28px;
+    width: 230px;
+    height: 230px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .incremental-miner-art-sync,
+  .incremental-deposit-art-sync,
+  .incremental-mine-xp-progress > span {
+    animation-duration: 1ms !important;
+    transition: none !important;
+  }
+}
