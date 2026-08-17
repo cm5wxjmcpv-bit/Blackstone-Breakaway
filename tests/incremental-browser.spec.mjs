@@ -16,8 +16,21 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   await expect(page.locator('#incremental-deposit-hp')).toHaveText('20 / 20 HP');
   await expect(page.locator('#incremental-story-title')).toHaveText('First Shift');
   await expect(page.locator('#incremental-story-text')).toContainText('twenty men waiting');
+  await expect(page.locator('#incremental-story-figure')).toBeVisible();
+  await expect(page.locator('#incremental-story-image')).toHaveAttribute('src', /assets\/story\/first-shift\.webp$/);
+  await expect.poll(() => page.locator('#incremental-story-image').evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
   await page.locator('#incremental-story-continue').click();
   await expect(page.locator('#incremental-buyout')).toBeDisabled();
+  await expect(page.locator('#incremental-deposit-art')).toBeVisible();
+  await expect(page.locator('#incremental-deposit-art')).toHaveAttribute('src', /assets\/deposits\/stone-face\.webp$/);
+  await expect.poll(() => page.locator('#incremental-deposit-art').evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect(page.locator('#incremental-miner-art')).toBeVisible();
+  await expect(page.locator('#incremental-miner-art')).toHaveAttribute('src', /assets\/characters\/miner-swing\.webp$/);
+  await expect.poll(() => page.locator('#incremental-miner-art').evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect(page.locator('#incremental-mine-stage')).toHaveCSS('background-image', /blackstone-shaft\.webp/);
+  await expect(page.locator('#incremental-xp-label')).toHaveText('XP');
+  await expect(page.locator('#incremental-mine-xp-progress')).toBeVisible();
+  await expect(page.locator('#incremental-mine-cash')).toHaveText('$0');
 
   const target = page.locator('#incremental-mining-target');
   await target.click();
@@ -74,6 +87,8 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
   await page.locator('#incremental-mining-target').click();
   await expect(page.locator('#incremental-level')).toHaveText('2');
   await expect(page.locator('#incremental-skill-points')).toHaveText('1');
+  await expect(page.locator('#incremental-mine-xp-progress')).toHaveClass(/has-skill-point/);
+  await expect(page.locator('#incremental-mine-xp-bar')).toHaveAttribute('style', /width: 100%/);
   await expect(page.locator('#incremental-story-title')).toHaveText('A Stronger Swing');
   await page.locator('#incremental-story-continue').click();
 
@@ -86,6 +101,7 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
   await powerSkill.getByRole('button', { name: 'Spend 1 Point' }).click();
   await expect(powerSkill).toContainText('Rank 1 / 10');
   await expect(page.locator('#incremental-skill-points')).toHaveText('0');
+  await expect(page.locator('#incremental-mine-xp-progress')).not.toHaveClass(/has-skill-point/);
 
   await page.locator('#incremental-tab-mine').click();
   await expect(page.locator('#incremental-manual-power')).toHaveText('3');
@@ -652,6 +668,8 @@ test('Blackstone competition requirements, acquisition, story completion, and pr
   await page.locator('#incremental-acquire-company').click();
   await expect(page.locator('#incremental-story-title')).toHaveText('The Company Is Yours');
   await expect(page.locator('#incremental-story-text')).toContainText('shaft where you started');
+  await expect(page.locator('#incremental-story-image')).toHaveAttribute('src', /assets\/story\/blackstone-new-shift\.webp$/);
+  await expect.poll(() => page.locator('#incremental-story-image').evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
   await page.locator('#incremental-story-continue').click();
 
   await expect(page.locator('#incremental-rival-status')).toHaveText('Acquired');
@@ -695,6 +713,8 @@ test.describe('touch viewport', () => {
     }
     const target = page.locator('#incremental-mining-target');
     await expect(target).toBeVisible();
+    await expect(page.locator('#incremental-mine-xp-progress')).toBeVisible();
+    await expect(page.locator('#incremental-mine-cash')).toBeVisible();
     const box = await target.boundingBox();
     expect(box.width).toBeGreaterThanOrEqual(200);
     expect(box.height).toBeGreaterThanOrEqual(200);

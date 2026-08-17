@@ -47,7 +47,7 @@ function createRuntimeRoot() {
           <div class="incremental-stat"><span>Level</span><strong id="incremental-level">1</strong></div>
           <div class="incremental-stat"><span>Skill Points</span><strong id="incremental-skill-points">0</strong></div>
           <div class="incremental-stat incremental-xp-stat">
-            <span id="incremental-xp-label">XP 0 / 100</span>
+            <span id="incremental-xp-label">XP</span>
             <div class="incremental-progress" role="progressbar" aria-label="Experience" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
               <span id="incremental-xp-bar"></span>
             </div>
@@ -90,15 +90,24 @@ function createRuntimeRoot() {
             </div>
 
             <div class="incremental-mine-stage" id="incremental-mine-stage">
+              <div class="incremental-mine-hud" aria-label="Mining status">
+                <div id="incremental-mine-xp-progress" class="incremental-mine-xp-progress" role="progressbar" aria-label="Experience" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <span id="incremental-mine-xp-bar"></span>
+                </div>
+                <output id="incremental-mine-cash" class="incremental-mine-cash" aria-label="Cash">$0</output>
+              </div>
               <div class="incremental-cave-glow" aria-hidden="true"></div>
               <div class="incremental-miner" aria-hidden="true">
-                <span class="incremental-miner-character">
-                  <span class="incremental-miner-head"></span>
-                  <span class="incremental-miner-body"></span>
-                </span>
-                <span class="incremental-miner-tool" id="incremental-miner-tool">
-                  <span class="incremental-tool-handle"></span>
-                  <span class="incremental-tool-head"></span>
+                <img id="incremental-miner-art" class="incremental-miner-art" alt="" draggable="false" hidden>
+                <span id="incremental-miner-fallback" class="incremental-miner-fallback">
+                  <span class="incremental-miner-character">
+                    <span class="incremental-miner-head"></span>
+                    <span class="incremental-miner-body"></span>
+                  </span>
+                  <span class="incremental-miner-tool" id="incremental-miner-tool">
+                    <span class="incremental-tool-handle"></span>
+                    <span class="incremental-tool-head"></span>
+                  </span>
                 </span>
               </div>
               <button id="incremental-mining-target" class="incremental-deposit-target" type="button">
@@ -108,6 +117,7 @@ function createRuntimeRoot() {
                   <span class="incremental-rock-facet facet-two"></span>
                   <span class="incremental-rock-facet facet-three"></span>
                   <span id="incremental-deposit-icon" class="incremental-deposit-icon"></span>
+                  <img id="incremental-deposit-art" class="incremental-deposit-art" alt="" draggable="false" hidden>
                 </span>
               </button>
               <div id="incremental-float-layer" class="incremental-float-layer" aria-hidden="true"></div>
@@ -346,6 +356,9 @@ function createRuntimeRoot() {
 
     <div id="incremental-story-overlay" class="incremental-story-overlay" hidden>
       <section class="incremental-story-dialog" role="dialog" aria-modal="true" aria-labelledby="incremental-story-title">
+        <figure id="incremental-story-figure" class="incremental-story-figure" hidden>
+          <img id="incremental-story-image" alt="" draggable="false">
+        </figure>
         <span id="incremental-story-speaker" class="incremental-label"></span>
         <h2 id="incremental-story-title">Milestone</h2>
         <p id="incremental-story-text"></p>
@@ -415,6 +428,9 @@ function buildUi(root, database) {
     nav_skill_points: byId('incremental-nav-skill-points'),
     xp_label: byId('incremental-xp-label'),
     xp_bar: byId('incremental-xp-bar'),
+    mine_xp_progress: byId('incremental-mine-xp-progress'),
+    mine_xp_bar: byId('incremental-mine-xp-bar'),
+    mine_cash: byId('incremental-mine-cash'),
     save_status: byId('incremental-save-status'),
     mine_name: byId('incremental-mine-name'),
     role: byId('incremental-role'),
@@ -428,7 +444,10 @@ function buildUi(root, database) {
     event_time: byId('incremental-event-time'),
     mining_target: byId('incremental-mining-target'),
     deposit_icon: byId('incremental-deposit-icon'),
+    deposit_art: byId('incremental-deposit-art'),
     float_layer: byId('incremental-float-layer'),
+    miner_art: byId('incremental-miner-art'),
+    miner_fallback: byId('incremental-miner-fallback'),
     miner_tool: byId('incremental-miner-tool'),
     deposit_name: byId('incremental-deposit-name'),
     deposit_hp: byId('incremental-deposit-hp'),
@@ -527,6 +546,8 @@ function buildUi(root, database) {
     generator_grid: byId('incremental-generator-grid'),
     business_upgrade_grid: byId('incremental-business-upgrade-grid'),
     story_overlay: byId('incremental-story-overlay'),
+    story_figure: byId('incremental-story-figure'),
+    story_image: byId('incremental-story-image'),
     story_speaker: byId('incremental-story-speaker'),
     story_title: byId('incremental-story-title'),
     story_text: byId('incremental-story-text'),
@@ -603,6 +624,85 @@ function buildUi(root, database) {
   nodes.store_description.textContent = `${config.store.description} ${config.lottery.disclaimer}`.trim();
   nodes.company_name.minLength = config.company.creation.minimumNameLength;
   nodes.company_name.maxLength = config.company.creation.maximumNameLength;
+
+  function resolveAssetUrl(path) {
+    return path ? new URL(path, database.game.manifestUrl).href : '';
+  }
+
+  function depositImagePath(deposit, state) {
+    const images = Array.isArray(deposit?.visual?.images) ? deposit.visual.images : [];
+    if (!images.length) return '';
+    const broken = Math.max(0, Math.floor(Number(state?.statistics?.totalDepositsBroken) || 0));
+    return images[broken % images.length];
+  }
+
+  nodes.deposit_art.addEventListener('error', () => {
+    nodes.deposit_art.hidden = true;
+    nodes.deposit_icon.hidden = false;
+    nodes.mining_target.classList.remove('has-deposit-art');
+  });
+  nodes.miner_art.addEventListener('error', () => {
+    nodes.miner_art.hidden = true;
+    nodes.miner_fallback.hidden = false;
+  });
+  nodes.story_image.addEventListener('error', () => {
+    nodes.story_figure.hidden = true;
+  });
+
+  const minerArtUrl = resolveAssetUrl(config.ui.minerImage);
+  nodes.miner_art.hidden = !minerArtUrl;
+  nodes.miner_fallback.hidden = Boolean(minerArtUrl);
+  if (minerArtUrl) nodes.miner_art.src = minerArtUrl;
+
+  function renderPlayerProgress(state, xpNeeded, xpProgress) {
+    const formattedCash = formatCurrency(state.cash);
+    const hasSkillPoints = state.character.skillPoints > 0;
+    const xpWidth = hasSkillPoints ? 100 : xpProgress * 100;
+    const xpStatus = hasSkillPoints
+      ? `${formatNumber(state.character.skillPoints)} unspent skill point${state.character.skillPoints === 1 ? '' : 's'}`
+      : `${formatNumber(state.character.xp)} of ${formatNumber(xpNeeded)} experience`;
+
+    nodes.cash.textContent = formattedCash;
+    nodes.mine_cash.textContent = formattedCash;
+    nodes.level.textContent = formatNumber(state.character.level);
+    nodes.skill_points.textContent = formatNumber(state.character.skillPoints);
+    nodes.nav_skill_points.textContent = formatNumber(state.character.skillPoints);
+    nodes.nav_skill_points.classList.toggle('has-points', hasSkillPoints);
+    nodes.xp_label.textContent = 'XP';
+    nodes.xp_bar.style.width = `${xpWidth}%`;
+    nodes.xp_bar.parentElement.classList.toggle('has-skill-point', hasSkillPoints);
+    nodes.xp_bar.parentElement.setAttribute('aria-valuemax', String(xpNeeded));
+    nodes.xp_bar.parentElement.setAttribute('aria-valuenow', String(Math.min(state.character.xp, xpNeeded)));
+    nodes.xp_bar.parentElement.setAttribute('aria-valuetext', xpStatus);
+    nodes.mine_xp_bar.style.width = `${xpWidth}%`;
+    nodes.mine_xp_progress.classList.toggle('has-skill-point', hasSkillPoints);
+    nodes.mine_xp_progress.setAttribute('aria-valuemax', String(xpNeeded));
+    nodes.mine_xp_progress.setAttribute('aria-valuenow', String(Math.min(state.character.xp, xpNeeded)));
+    nodes.mine_xp_progress.setAttribute('aria-valuetext', xpStatus);
+  }
+
+  function renderMineArtwork(state, mine, deposit) {
+    nodes.deposit_icon.textContent = deposit.visual.icon;
+    const depositArtUrl = resolveAssetUrl(depositImagePath(deposit, state));
+    nodes.mining_target.classList.toggle('has-deposit-art', Boolean(depositArtUrl));
+    nodes.deposit_icon.hidden = Boolean(depositArtUrl);
+    nodes.deposit_art.hidden = !depositArtUrl;
+    if (depositArtUrl) {
+      if (nodes.deposit_art.src !== depositArtUrl) nodes.deposit_art.src = depositArtUrl;
+    } else {
+      nodes.deposit_art.removeAttribute('src');
+    }
+    nodes.mining_target.style.setProperty('--deposit-color', deposit.visual.color);
+    nodes.mining_target.style.setProperty('--deposit-accent', deposit.visual.accent);
+    nodes.mine_stage.style.setProperty('--mine-background', mine.visual.background);
+    nodes.mine_stage.style.setProperty('--mine-accent', mine.visual.accent);
+    const mineArtUrl = resolveAssetUrl(mine.visual.image);
+    if (mineArtUrl) {
+      nodes.mine_stage.style.setProperty('--mine-art', `url("${mineArtUrl}")`);
+    } else {
+      nodes.mine_stage.style.removeProperty('--mine-art');
+    }
+  }
 
   function setSaveStatus(message, failed = false) {
     nodes.save_status.textContent = message;
@@ -1525,15 +1625,7 @@ function buildUi(root, database) {
     const contractCost = config.employment.contractBuyoutCost;
     const contractProgress = contractCost <= 0 ? 1 : Math.max(0, Math.min(1, state.cash / contractCost));
 
-    nodes.cash.textContent = formatCurrency(state.cash);
-    nodes.level.textContent = formatNumber(state.character.level);
-    nodes.skill_points.textContent = formatNumber(state.character.skillPoints);
-    nodes.nav_skill_points.textContent = formatNumber(state.character.skillPoints);
-    nodes.nav_skill_points.classList.toggle('has-points', state.character.skillPoints > 0);
-    nodes.xp_label.textContent = `XP ${formatNumber(state.character.xp)} / ${formatNumber(xpNeeded)}`;
-    nodes.xp_bar.style.width = `${xpProgress * 100}%`;
-    nodes.xp_bar.parentElement.setAttribute('aria-valuemax', String(xpNeeded));
-    nodes.xp_bar.parentElement.setAttribute('aria-valuenow', String(Math.min(state.character.xp, xpNeeded)));
+    renderPlayerProgress(state, xpNeeded, xpProgress);
     nodes.mine_name.textContent = mineDisplayName(state, mine);
     nodes.deposit_name.textContent = deposit.name;
     nodes.deposit_hp.textContent = `${formatNumber(state.currentDeposit.hp)} / ${formatNumber(state.currentDeposit.maxHp)} HP`;
@@ -1541,11 +1633,7 @@ function buildUi(root, database) {
     nodes.deposit_progress.setAttribute('aria-valuemax', String(state.currentDeposit.maxHp));
     nodes.deposit_progress.setAttribute('aria-valuenow', String(state.currentDeposit.hp));
     nodes.mining_target.setAttribute('aria-label', `Mine ${deposit.name}. ${state.currentDeposit.hp} of ${state.currentDeposit.maxHp} durability remaining.`);
-    nodes.deposit_icon.textContent = deposit.visual.icon;
-    nodes.mining_target.style.setProperty('--deposit-color', deposit.visual.color);
-    nodes.mining_target.style.setProperty('--deposit-accent', deposit.visual.accent);
-    nodes.mine_stage.style.setProperty('--mine-background', mine.visual.background);
-    nodes.mine_stage.style.setProperty('--mine-accent', mine.visual.accent);
+    renderMineArtwork(state, mine, deposit);
     nodes.wages.textContent = formatCurrency(state.employment.totalWages);
     nodes.company_value.textContent = formatCurrency(state.employment.companyValue);
     nodes.manual_power.textContent = formatNumber(miningStats.manualPower);
@@ -1586,15 +1674,7 @@ function buildUi(root, database) {
     const contractCost = config.employment.contractBuyoutCost;
     const contractProgress = contractCost <= 0 ? 1 : Math.max(0, Math.min(1, state.cash / contractCost));
 
-    nodes.cash.textContent = formatCurrency(state.cash);
-    nodes.level.textContent = formatNumber(state.character.level);
-    nodes.skill_points.textContent = formatNumber(state.character.skillPoints);
-    nodes.nav_skill_points.textContent = formatNumber(state.character.skillPoints);
-    nodes.nav_skill_points.classList.toggle('has-points', state.character.skillPoints > 0);
-    nodes.xp_label.textContent = `XP ${formatNumber(state.character.xp)} / ${formatNumber(xpNeeded)}`;
-    nodes.xp_bar.style.width = `${xpProgress * 100}%`;
-    nodes.xp_bar.parentElement.setAttribute('aria-valuemax', String(xpNeeded));
-    nodes.xp_bar.parentElement.setAttribute('aria-valuenow', String(Math.min(state.character.xp, xpNeeded)));
+    renderPlayerProgress(state, xpNeeded, xpProgress);
     nodes.subtitle.textContent = employeeStage ? config.ui.subtitle : config.independence.subtitle;
     nodes.mine_name.textContent = mineDisplayName(state, mine);
     nodes.role.textContent = employeeStage
@@ -1616,11 +1696,7 @@ function buildUi(root, database) {
     nodes.deposit_progress.setAttribute('aria-valuemax', String(state.currentDeposit.maxHp));
     nodes.deposit_progress.setAttribute('aria-valuenow', String(state.currentDeposit.hp));
     nodes.mining_target.setAttribute('aria-label', `Mine ${deposit.name}. ${state.currentDeposit.hp} of ${state.currentDeposit.maxHp} durability remaining.`);
-    nodes.deposit_icon.textContent = deposit.visual.icon;
-    nodes.mining_target.style.setProperty('--deposit-color', deposit.visual.color);
-    nodes.mining_target.style.setProperty('--deposit-accent', deposit.visual.accent);
-    nodes.mine_stage.style.setProperty('--mine-background', mine.visual.background);
-    nodes.mine_stage.style.setProperty('--mine-accent', mine.visual.accent);
+    renderMineArtwork(state, mine, deposit);
     nodes.wages.textContent = formatCurrency(state.employment.totalWages);
     nodes.company_value.textContent = formatCurrency(state.employment.companyValue);
     nodes.manual_power.textContent = formatNumber(miningStats.manualPower);
@@ -1666,9 +1742,10 @@ function buildUi(root, database) {
   function showImpact(result) {
     nodes.mining_target.classList.remove('is-hit', 'is-broken');
     nodes.miner_tool.classList.remove('is-swinging');
+    nodes.miner_art.classList.remove('is-swinging');
     void nodes.mining_target.offsetWidth;
     nodes.mining_target.classList.add(result.type === 'break' ? 'is-broken' : 'is-hit');
-    nodes.miner_tool.classList.add('is-swinging');
+    (nodes.miner_art.hidden ? nodes.miner_tool : nodes.miner_art).classList.add('is-swinging');
     spawnFloat(`-${formatNumber(result.damage)}`, 'damage');
     if (result.critical) spawnFloat('CRITICAL!', 'critical');
 
@@ -1734,6 +1811,15 @@ function buildUi(root, database) {
     nodes.story_speaker.textContent = activeStory.speaker;
     nodes.story_title.textContent = activeStory.title;
     nodes.story_text.textContent = activeStory.text;
+    const storyImageUrl = resolveAssetUrl(activeStory.image);
+    nodes.story_figure.hidden = !storyImageUrl;
+    if (storyImageUrl) {
+      if (nodes.story_image.src !== storyImageUrl) nodes.story_image.src = storyImageUrl;
+      nodes.story_image.alt = activeStory.imageAlt || activeStory.title;
+    } else {
+      nodes.story_image.removeAttribute('src');
+      nodes.story_image.alt = '';
+    }
     storyPausedForOffline = !nodes.offline_overlay.hidden;
     nodes.story_overlay.hidden = storyPausedForOffline;
     if (!storyPausedForOffline) {
@@ -1821,6 +1907,9 @@ function buildUi(root, database) {
     activeStory = null;
     storyPausedForOffline = false;
     nodes.story_overlay.hidden = true;
+    nodes.story_figure.hidden = true;
+    nodes.story_image.removeAttribute('src');
+    nodes.story_image.alt = '';
     nodes.offline_overlay.hidden = true;
     finishModalInteraction();
     lastLotteryResult = null;
