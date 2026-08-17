@@ -206,6 +206,7 @@
         "title": "First Shift",
         "location": "Blackstone Shaft 7 — Entry Heading",
         "artId": "blackstone-shaft-7-new-hire",
+        "assetPath": "assets/cinematics/blackstone-shaft-7-new-hire.webp",
         "blocking": true,
         "completionAction": "none",
         "historyEntries": [
@@ -231,6 +232,7 @@
         "title": "The First Promotion",
         "location": "Foreman Cole's Office",
         "artId": "foreman-cole-office",
+        "assetPath": "assets/cinematics/foreman-cole-office.webp",
         "blocking": true,
         "completionAction": "none",
         "historyEntries": [
@@ -277,6 +279,7 @@
         "title": "Senior Miner",
         "location": "Blackstone East Vein",
         "artId": "senior-miner-underground-heading",
+        "assetPath": "assets/cinematics/senior-miner-underground-heading.webp",
         "blocking": true,
         "completionAction": "none",
         "historyEntries": [
@@ -323,6 +326,7 @@
         "title": "Shift Lead",
         "location": "Foreman Cole's Office",
         "artId": "shift-lead-contract-paperwork",
+        "assetPath": "assets/cinematics/shift-lead-contract-paperwork.webp",
         "blocking": true,
         "completionAction": "discover-contract",
         "historyEntries": [
@@ -370,6 +374,7 @@
         "title": "The Walkout",
         "location": "Blackstone Contract Office",
         "artId": "contract-office-walkout",
+        "assetPath": "assets/cinematics/contract-office-walkout.webp",
         "blocking": true,
         "completionAction": "complete-walkout",
         "historyEntries": [
@@ -399,6 +404,7 @@
         "title": "Freedom Claim",
         "location": "Freedom Claim",
         "artId": "freedom-claim-arrival",
+        "assetPath": "assets/cinematics/freedom-claim-arrival.webp",
         "blocking": true,
         "completionAction": "none",
         "historyEntries": [

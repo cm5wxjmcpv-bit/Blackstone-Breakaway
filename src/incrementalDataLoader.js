@@ -32,6 +32,7 @@ export async function loadIncrementalDatabase() {
       engineVersion: gamePackage.manifest.engineVersion,
       gameType: gamePackage.manifest.gameType,
       manifestUrl: gamePackage.manifestUrl,
+      contentRootUrl: gamePackage.contentRootUrl,
     },
     config,
   };

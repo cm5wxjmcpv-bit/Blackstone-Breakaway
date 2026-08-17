@@ -31,6 +31,12 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   await expect(page.locator('#incremental-story-title')).toHaveText('First Shift');
   await expect(page.locator('#incremental-story-location')).toContainText('Blackstone Shaft 7');
   await expect(page.locator('#incremental-story-text')).toContainText('owns the ground');
+  const firstShiftArt = page.locator('#incremental-story-art-image');
+  await expect(firstShiftArt).toBeVisible();
+  await expect(firstShiftArt).toHaveAttribute('src', /blackstone-shaft-7-new-hire\.webp$/);
+  await expect(firstShiftArt).toHaveAttribute('alt', /First Shift.*Blackstone Shaft 7/);
+  await expect.poll(() => firstShiftArt.evaluate((image) => image.naturalWidth)).toBe(1672);
+  await expect(page.locator('#incremental-story-art-placeholder')).toBeHidden();
   await page.locator('#incremental-story-continue').click();
   await expect(page.locator('#incremental-story-text')).toContainText('posted wage');
   await page.locator('#incremental-story-continue').click();
@@ -148,9 +154,21 @@ test('leveling, skills, and the transaction-safe Walkout persist the employee-to
   await page.reload();
   await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
   await expect(page.locator('#incremental-story-title')).toHaveText('The Walkout');
+  await expect(page.locator('#incremental-story-art-image')).toHaveAttribute(
+    'src',
+    /contract-office-walkout\.webp$/,
+  );
   const resumedBuyout = await page.evaluate(() => JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1')));
   expect(resumedBuyout.payload.cash).toBe(pendingBuyout.payload.cash);
   expect(resumedBuyout.payload.employment.buyoutTransaction.status).toBe('walkout-pending');
+  for (let index = 0; index < 4; index += 1) {
+    await page.locator('#incremental-story-continue').click();
+  }
+  await expect(page.locator('#incremental-story-title')).toHaveText('Freedom Claim');
+  await expect(page.locator('#incremental-story-art-image')).toHaveAttribute(
+    'src',
+    /freedom-claim-arrival\.webp$/,
+  );
   await finishVisibleStory(page);
   await expect(page.locator('#incremental-role')).toHaveText('Independent Miner');
   await expect(page.locator('#incremental-mine-name')).toHaveText('Freedom Claim');
@@ -757,6 +775,14 @@ test.describe('touch viewport', () => {
     const storyDialogBox = await page.locator('#incremental-story-overlay .incremental-story-dialog').boundingBox();
     expect(storyDialogBox.x).toBeGreaterThanOrEqual(0);
     expect(storyDialogBox.x + storyDialogBox.width).toBeLessThanOrEqual(390);
+    const storyArtBox = await page.locator('#incremental-story-art-image').boundingBox();
+    expect(storyArtBox.x).toBeGreaterThanOrEqual(0);
+    expect(storyArtBox.x + storyArtBox.width).toBeLessThanOrEqual(390);
+    expect(storyArtBox.width).toBeGreaterThanOrEqual(300);
+    expect(storyArtBox.height).toBeGreaterThanOrEqual(160);
+    await expect.poll(() => page.locator('#incremental-story-art-image').evaluate(
+      (image) => image.naturalWidth,
+    )).toBe(1672);
     const storyContinueBox = await page.locator('#incremental-story-continue').boundingBox();
     expect(storyContinueBox.height).toBeGreaterThanOrEqual(44);
     await finishVisibleStory(page);

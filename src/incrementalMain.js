@@ -378,8 +378,9 @@ function createRuntimeRoot() {
 
     <div id="incremental-story-overlay" class="incremental-story-overlay" hidden>
       <section class="incremental-story-dialog" role="dialog" aria-modal="true" aria-labelledby="incremental-story-title">
-        <div id="incremental-story-art" class="incremental-story-art" aria-hidden="true">
-          <span>SCENE ART PLACEHOLDER</span>
+        <div id="incremental-story-art" class="incremental-story-art">
+          <img id="incremental-story-art-image" alt="" decoding="async" loading="eager" hidden>
+          <span id="incremental-story-art-placeholder">SCENE ART PLACEHOLDER</span>
         </div>
         <span id="incremental-story-location" class="incremental-story-location"></span>
         <span id="incremental-story-speaker" class="incremental-label"></span>
@@ -579,6 +580,8 @@ function buildUi(root, database) {
     history_list: byId('incremental-history-list'),
     story_overlay: byId('incremental-story-overlay'),
     story_art: byId('incremental-story-art'),
+    story_art_image: byId('incremental-story-art-image'),
+    story_art_placeholder: byId('incremental-story-art-placeholder'),
     story_location: byId('incremental-story-location'),
     story_speaker: byId('incremental-story-speaker'),
     story_title: byId('incremental-story-title'),
@@ -1993,7 +1996,24 @@ function buildUi(root, database) {
     const { scene } = activeStory;
     const step = scene.steps[activeStory.stepIndex];
     nodes.story_art.dataset.artId = scene.artId;
-    nodes.story_art.querySelector('span').textContent = `VISUAL PLACEHOLDER · ${scene.artId.replaceAll('-', ' ').toUpperCase()}`;
+    const assetUrl = scene.assetPath
+      ? new URL(scene.assetPath, database.game.contentRootUrl).href
+      : '';
+    nodes.story_art_image.hidden = !assetUrl;
+    nodes.story_art_placeholder.hidden = Boolean(assetUrl);
+    if (assetUrl) {
+      nodes.story_art_image.alt = `${scene.title} — ${scene.location}`;
+      nodes.story_art_image.onerror = () => {
+        nodes.story_art_image.hidden = true;
+        nodes.story_art_placeholder.hidden = false;
+        nodes.story_art_placeholder.textContent = `SCENE ART UNAVAILABLE · ${scene.artId.replaceAll('-', ' ').toUpperCase()}`;
+      };
+      if (nodes.story_art_image.src !== assetUrl) nodes.story_art_image.src = assetUrl;
+    } else {
+      nodes.story_art_image.removeAttribute('src');
+      nodes.story_art_image.alt = '';
+      nodes.story_art_placeholder.textContent = `VISUAL PLACEHOLDER · ${scene.artId.replaceAll('-', ' ').toUpperCase()}`;
+    }
     nodes.story_location.textContent = `${activeStory.replay ? 'STORY REPLAY · ' : ''}${scene.location}`;
     nodes.story_title.textContent = scene.title;
     if (activeStory.choiceResponse) {

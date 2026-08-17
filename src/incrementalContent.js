@@ -1,5 +1,6 @@
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+const ASSET_PATH_PATTERN = /^[a-z0-9][a-z0-9._/-]*\.(?:png|webp|jpe?g)$/i;
 const SKILL_EFFECT_TYPES = new Set([
   'manual-power-flat',
   'mining-speed',
@@ -72,6 +73,18 @@ function integer(value, fallback = 0, minimum = 0) {
 function normalizedId(value) {
   const id = String(value || '').trim().toLowerCase();
   return ID_PATTERN.test(id) ? id : '';
+}
+
+function normalizedAssetPath(value) {
+  const path = String(value || '').trim();
+  if (!path
+    || path.startsWith('/')
+    || path.includes('..')
+    || path.includes('\\')
+    || !ASSET_PATH_PATTERN.test(path)) {
+    return '';
+  }
+  return path;
 }
 
 function uniqueIds(entries, label, errors) {
@@ -450,8 +463,12 @@ function normalizeEmployment(rawEmployment, context, errors) {
 
   const scenes = (Array.isArray(source.scenes) ? source.scenes : []).map((entry, sceneIndex) => {
     const label = `employment.scenes[${sceneIndex}]`;
+    const assetPath = normalizedAssetPath(entry?.assetPath);
     if (!Array.isArray(entry?.steps) || entry.steps.length < 1) {
       errors.push(`${label}.steps must contain at least one entry`);
+    }
+    if (entry?.assetPath !== undefined && !assetPath) {
+      errors.push(`${label}.assetPath must be a safe relative PNG, WebP, or JPEG path`);
     }
     const completionAction = normalizedId(entry?.completionAction) || 'none';
     if (!EMPLOYMENT_SCENE_ACTIONS.has(completionAction)) {
@@ -502,6 +519,7 @@ function normalizeEmployment(rawEmployment, context, errors) {
       title: text(entry?.title, entry?.id || 'Blackstone Story', 120),
       location: text(entry?.location, 'Blackstone Mining Co.', 120),
       artId: normalizedId(entry?.artId),
+      assetPath,
       blocking: entry?.blocking !== false,
       completionAction,
       historyEntries,

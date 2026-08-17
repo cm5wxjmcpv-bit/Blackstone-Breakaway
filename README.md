@@ -40,7 +40,7 @@ The audit validates the standalone data contract, incremental runtime, save migr
 
 Existing version 0.8 saves migrate automatically to the version 0.9 employment-chapter schema. Independent players remain independent and receive the completed Blackstone chapter in Story/Company History. Employed players are placed at the closest reasonable rank from their existing level, employee deposits, and Blackstone value without a flood of automatic scenes.
 
-The cinematic scenes currently use deliberate visual placeholders. Final scene artwork will be added only after individual user approval, beginning with First Shift at Blackstone Shaft 7. See [`docs/v0.9-blackstone-story.md`](docs/v0.9-blackstone-story.md) and [`games/miner-incremental/data/cinematic-art-manifest.json`](games/miner-incremental/data/cinematic-art-manifest.json).
+All six Chapter 1 cinematics use individually approved, mobile-safe 16:9 artwork. Assets are stored as optimized WebP files and resolved from package data, with a safe visual fallback if an asset cannot load. See [`docs/v0.9-blackstone-story.md`](docs/v0.9-blackstone-story.md) and [`games/miner-incremental/data/cinematic-art-manifest.json`](games/miner-incremental/data/cinematic-art-manifest.json).
 
 ## Repository scope
 

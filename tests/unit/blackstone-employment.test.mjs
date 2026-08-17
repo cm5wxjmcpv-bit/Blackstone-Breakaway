@@ -101,6 +101,7 @@ test('the actual package defines four validated Blackstone ranks, assignments, s
   ]);
   assert.equal(actual.employment.contractBuyoutCost, 5000);
   assert.equal(actual.employment.scenes.length, 6);
+  assert.ok(actual.employment.scenes.every((scene) => scene.assetPath.endsWith('.webp')));
   assert.equal(actual.employment.assignmentsById['blackstone-production-heading'].coworkers.length, 3);
 });
 
@@ -138,6 +139,13 @@ test('employment data rejects broken rank, assignment, wage, equipment, and scen
   assert.throws(
     () => normalizeIncrementalConfig(unsafeDiscovery, { gameId: 'miner-incremental' }),
     /contract discovery rank scene must use the discover-contract/,
+  );
+
+  const unsafeArtwork = clone(rawConfig);
+  unsafeArtwork.employment.scenes[0].assetPath = '../outside-package.png';
+  assert.throws(
+    () => normalizeIncrementalConfig(unsafeArtwork, { gameId: 'miner-incremental' }),
+    /assetPath must be a safe relative/,
   );
 });
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access, readFile } from 'node:fs/promises';
+import { access, readFile, stat } from 'node:fs/promises';
 import { normalizeIncrementalConfig } from '../src/incrementalContent.js';
 
 const manifest = JSON.parse(await readFile(new URL('../games/miner-incremental/game.json', import.meta.url)));
@@ -35,14 +35,20 @@ assert.equal(config.employment.scenes.length, 6);
 assert.equal(config.employment.scenesById['shift-lead-contract'].completionAction, 'discover-contract');
 assert.equal(config.employment.scenesById['the-walkout'].completionAction, 'complete-walkout');
 assert.equal(config.employment.assignmentsById['blackstone-production-heading'].coworkers.length, 3);
-assert.equal(cinematicArt.finalArtworkIntegrated, false);
+assert.equal(cinematicArt.finalArtworkIntegrated, true);
+assert.equal(cinematicArt.status, 'approved-integrated');
 assert.equal(cinematicArt.scenes.length, config.employment.scenes.length);
 assert.equal(cinematicArt.scenes[0].sceneId, 'first-shift');
-assert.equal(cinematicArt.scenes[0].status, 'ready-for-visual-approval');
+assert.ok(cinematicArt.scenes.every((scene) => scene.status === 'approved-integrated'));
 assert.deepEqual(
-  cinematicArt.scenes.map((scene) => [scene.sceneId, scene.artId]),
-  config.employment.scenes.map((scene) => [scene.id, scene.artId]),
+  cinematicArt.scenes.map((scene) => [scene.sceneId, scene.artId, scene.assetPath]),
+  config.employment.scenes.map((scene) => [scene.id, scene.artId, scene.assetPath]),
 );
+for (const scene of cinematicArt.scenes) {
+  const assetUrl = new URL(`../games/miner-incremental/${scene.assetPath}`, import.meta.url);
+  await access(assetUrl);
+  assert.ok((await stat(assetUrl)).size < 500_000, `${scene.sceneId} artwork should remain mobile-friendly`);
+}
 assert.deepEqual(new Set(config.generators.map((generator) => generator.visualType)), new Set(['miner', 'crew', 'drill']));
 assert.equal(config.competition.milestones.length, 5);
 assert.equal(config.competition.acquisition.productionMultiplier, 2.5);
