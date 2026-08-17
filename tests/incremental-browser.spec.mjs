@@ -1,5 +1,19 @@
 import { expect, test } from '@playwright/test';
 
+async function finishVisibleStory(page, options = {}) {
+  const overlay = page.locator('#incremental-story-overlay');
+  for (let step = 0; step < (options.maximumSteps || 20); step += 1) {
+    if (!await overlay.isVisible()) return;
+    const choice = page.locator('#incremental-story-choices button:visible').first();
+    if (await choice.isVisible()) {
+      await choice.click();
+    } else {
+      await page.locator('#incremental-story-continue').click();
+    }
+  }
+  throw new Error('Story scene did not close within the expected number of steps.');
+}
+
 test('miner package selects the incremental runtime, mines deposits, and reloads its isolated save', async ({ page }) => {
   const consoleErrors = [];
   const pageErrors = [];
@@ -15,9 +29,18 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   await expect(page.getByRole('heading', { name: 'Blackstone Breakaway' })).toBeVisible();
   await expect(page.locator('#incremental-deposit-hp')).toHaveText('20 / 20 HP');
   await expect(page.locator('#incremental-story-title')).toHaveText('First Shift');
+  await expect(page.locator('#incremental-story-location')).toContainText('Blackstone Shaft 7');
+  await expect(page.locator('#incremental-story-text')).toContainText('owns the ground');
+  await page.locator('#incremental-story-continue').click();
+  await expect(page.locator('#incremental-story-text')).toContainText('posted wage');
+  await page.locator('#incremental-story-continue').click();
   await expect(page.locator('#incremental-story-text')).toContainText('twenty men waiting');
   await page.locator('#incremental-story-continue').click();
-  await expect(page.locator('#incremental-buyout')).toBeDisabled();
+  await expect(page.locator('#incremental-story-overlay')).toBeHidden();
+  await expect(page.locator('#incremental-contract-title')).toHaveText('Current Blackstone Assignment');
+  await expect(page.locator('#incremental-career-rank')).toHaveText('New Hire');
+  await expect(page.locator('#incremental-career-assignment')).toContainText('Entry Heading');
+  await expect(page.locator('#incremental-buyout')).toBeHidden();
 
   const target = page.locator('#incremental-mining-target');
   await target.click();
@@ -31,7 +54,7 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   await expect(page.locator('#incremental-cash')).not.toHaveText('$0');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1')));
   expect(saved.gameType).toBe('incremental');
-  expect(saved.version).toBe(8);
+  expect(saved.version).toBe(9);
   expect(saved.payload.statistics.totalManualSwings).toBe(10);
   expect(saved.payload.statistics.totalDepositsBroken).toBe(1);
   expect(saved.payload.statistics.totalOreMined).toBeGreaterThan(0);
@@ -51,31 +74,52 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   expect(pageErrors).toEqual([]);
 });
 
-test('leveling, skills, and the contract buyout persist the employee-to-independent transition', async ({ page }) => {
+test('leveling, skills, and the transaction-safe Walkout persist the employee-to-independent transition', async ({ page }) => {
   await page.goto('/');
-  await page.locator('#incremental-story-continue').click();
+  await finishVisibleStory(page);
 
   await page.addInitScript(() => {
     if (sessionStorage.getItem('milestone-two-seeded')) return;
     const key = 'blackstone_breakaway_save_miner-incremental_slot_1';
     const save = JSON.parse(localStorage.getItem(key));
     if (!save) return;
-    save.payload.cash = 500;
-    save.payload.character.xp = 99;
-    save.payload.currentDeposit.hp = 2;
+    save.payload.cash = 5000;
+    save.payload.character.level = 7;
+    save.payload.character.xp = 380;
+    save.payload.character.skillPoints = 0;
+    save.payload.employment.rankId = 'shift-lead';
+    save.payload.employment.completedPromotions = [
+      'new-hire', 'mine-worker', 'senior-miner', 'shift-lead',
+    ];
+    save.payload.employment.assignmentId = 'blackstone-production-heading';
+    save.payload.employment.depositsBroken = 150;
+    save.payload.employment.contractDiscovered = true;
+    save.payload.employment.completedScenes = [
+      'first-shift', 'first-promotion', 'senior-miner', 'shift-lead-contract',
+    ];
+    save.payload.employment.pendingScenes = [];
+    save.payload.employment.storyChoices = {
+      'first-promotion': 'ask-raise',
+      'senior-miner': 'demand-pay',
+      'shift-lead-contract': 'ill-get-it',
+    };
+    save.payload.currentDeposit = { id: 'iron-vein', hp: 2, maxHp: 80 };
+    save.payload.milestones = ['contract-within-reach'];
     localStorage.setItem(key, JSON.stringify(save));
     sessionStorage.setItem('milestone-two-seeded', 'true');
   });
   await page.reload();
   await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
-  await expect(page.locator('#incremental-story-title')).toHaveText('Freedom Is Affordable');
-  await page.locator('#incremental-story-continue').click();
+  await expect(page.locator('#incremental-contract-title')).toHaveText('Employment Contract Buyout');
+  await expect(page.locator('#incremental-contract-progress-label')).toHaveText('$5.00K / $5.00K');
+  await expect(page.locator('#incremental-buyout')).toBeEnabled();
+  await expect(page.locator('#incremental-blackstone-coworkers')).toBeVisible();
+  await expect(page.locator('.incremental-blackstone-coworker-card')).toHaveCount(3);
 
   await page.locator('#incremental-mining-target').click();
-  await expect(page.locator('#incremental-level')).toHaveText('2');
+  await expect(page.locator('#incremental-level')).toHaveText('8');
   await expect(page.locator('#incremental-skill-points')).toHaveText('1');
-  await expect(page.locator('#incremental-story-title')).toHaveText('A Stronger Swing');
-  await page.locator('#incremental-story-continue').click();
+  await finishVisibleStory(page);
 
   await page.locator('#incremental-tab-mine').focus();
   await page.keyboard.press('End');
@@ -88,11 +132,26 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
   await expect(page.locator('#incremental-skill-points')).toHaveText('0');
 
   await page.locator('#incremental-tab-mine').click();
-  await expect(page.locator('#incremental-manual-power')).toHaveText('3');
+  await expect(page.locator('#incremental-manual-power')).not.toHaveText('8');
+  const cashBeforeBuyout = await page.evaluate(() => {
+    const save = JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1'));
+    return save.payload.cash;
+  });
   page.once('dialog', (dialog) => dialog.accept());
   await page.locator('#incremental-buyout').click();
-  await expect(page.locator('#incremental-story-title')).toHaveText('Independent Miner');
-  await page.locator('#incremental-story-continue').click();
+  await expect(page.locator('#incremental-story-title')).toHaveText('The Walkout');
+  const pendingBuyout = await page.evaluate(() => JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1')));
+  expect(pendingBuyout.payload.cash).toBe(cashBeforeBuyout - 5000);
+  expect(pendingBuyout.payload.storyStage).toBe('employee');
+  expect(pendingBuyout.payload.employment.buyoutTransaction.status).toBe('walkout-pending');
+
+  await page.reload();
+  await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
+  await expect(page.locator('#incremental-story-title')).toHaveText('The Walkout');
+  const resumedBuyout = await page.evaluate(() => JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1')));
+  expect(resumedBuyout.payload.cash).toBe(pendingBuyout.payload.cash);
+  expect(resumedBuyout.payload.employment.buyoutTransaction.status).toBe('walkout-pending');
+  await finishVisibleStory(page);
   await expect(page.locator('#incremental-role')).toHaveText('Independent Miner');
   await expect(page.locator('#incremental-mine-name')).toHaveText('Freedom Claim');
   await expect(page.locator('#incremental-subtitle')).toContainText('belongs to you');
@@ -104,8 +163,9 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
   const wagesBeforeIndependentMining = afterBuyout.payload.employment.totalWages;
   expect(afterBuyout.payload.storyStage).toBe('independent');
   expect(afterBuyout.payload.employment.active).toBe(false);
-  expect(afterBuyout.payload.employment.contractBuyoutPaid).toBe(500);
-  expect(afterBuyout.payload.cash).toBe(1);
+  expect(afterBuyout.payload.employment.contractBuyoutPaid).toBe(5000);
+  expect(afterBuyout.payload.employment.buyoutTransaction.status).toBe('completed');
+  expect(afterBuyout.payload.cash).toBe(cashBeforeBuyout - 5000);
 
   const target = page.locator('#incremental-mining-target');
   for (let index = 0; index < 15; index += 1) await target.click();
@@ -116,6 +176,17 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
   const independentSave = await page.evaluate(() => JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1')));
   expect(independentSave.payload.employment.totalWages).toBe(wagesBeforeIndependentMining);
 
+  await page.locator('#incremental-tab-company').click();
+  const walkoutHistory = page.locator('.incremental-history-entry', { hasText: 'The Walkout' });
+  await expect(walkoutHistory).toBeVisible();
+  await walkoutHistory.getByRole('button', { name: 'Replay Scene' }).click();
+  await expect(page.locator('#incremental-story-location')).toContainText('STORY REPLAY');
+  await finishVisibleStory(page);
+  const replayedSave = await page.evaluate(() => JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1')));
+  expect(replayedSave.payload.cash).toBe(independentSave.payload.cash);
+  expect(replayedSave.payload.storyStage).toBe('independent');
+  expect(replayedSave.payload.employment.contractBuyoutPaid).toBe(5000);
+
   await page.reload();
   await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
   await expect(page.locator('#incremental-role')).toHaveText('Independent Miner');
@@ -124,7 +195,7 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
 
 test('ore sales, Miller equipment, and scratch tickets persist without bypassing purchase rules', async ({ page }) => {
   await page.goto('/');
-  await page.locator('#incremental-story-continue').click();
+  await finishVisibleStory(page);
 
   await page.addInitScript(() => {
     if (sessionStorage.getItem('milestone-three-seeded')) return;
@@ -135,7 +206,7 @@ test('ore sales, Miller equipment, and scratch tickets persist without bypassing
     save.payload.character.level = 3;
     save.payload.storyStage = 'independent';
     save.payload.employment.active = false;
-    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.contractBuyoutPaid = 5000;
     save.payload.employment.endedAt = Date.now();
     save.payload.materials.stone = 12;
     save.payload.milestones = [
@@ -179,7 +250,7 @@ test('ore sales, Miller equipment, and scratch tickets persist without bypassing
   await expect(ticket.locator('.incremental-lottery-reveal')).toBeVisible();
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1')));
-  expect(saved.version).toBe(8);
+  expect(saved.version).toBe(9);
   expect(saved.payload.materials.stone).toBe(2);
   expect(saved.payload.statistics.totalOreSold).toBe(10);
   expect(saved.payload.ownedEquipment).toContain('iron-pickaxe');
@@ -204,7 +275,7 @@ test('company creation, scalable generators, upgrades, and deposit automation pe
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   await page.goto('/');
-  await page.locator('#incremental-story-continue').click();
+  await finishVisibleStory(page);
   await page.addInitScript(() => {
     Math.random = () => 0;
     if (sessionStorage.getItem('milestone-four-seeded')) return;
@@ -216,7 +287,7 @@ test('company creation, scalable generators, upgrades, and deposit automation pe
     save.payload.character.xp = 0;
     save.payload.storyStage = 'independent';
     save.payload.employment.active = false;
-    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.contractBuyoutPaid = 5000;
     save.payload.employment.endedAt = Date.now();
     save.payload.currentDeposit.hp = 2;
     save.payload.milestones = [
@@ -286,7 +357,7 @@ test('company creation, scalable generators, upgrades, and deposit automation pe
   await expect(page.locator('#incremental-company-production')).toHaveText('3.45/sec');
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1')));
-  expect(saved.version).toBe(8);
+  expect(saved.version).toBe(9);
   expect(saved.payload.storyStage).toBe('company-owner');
   expect(saved.payload.company.name).toBe('Freedom Forge Mining');
   expect(saved.payload.company.level).toBe(2);
@@ -330,7 +401,7 @@ test('mine progression shows combined requirements, pays a one-time unlock cost,
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   await page.goto('/');
-  await page.locator('#incremental-story-continue').click();
+  await finishVisibleStory(page);
   await page.addInitScript(() => {
     if (sessionStorage.getItem('milestone-five-seeded')) return;
     const key = 'blackstone_breakaway_save_miner-incremental_slot_1';
@@ -341,7 +412,7 @@ test('mine progression shows combined requirements, pays a one-time unlock cost,
     save.payload.character.xp = 0;
     save.payload.storyStage = 'independent';
     save.payload.employment.active = false;
-    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.contractBuyoutPaid = 5000;
     save.payload.employment.endedAt = Date.now();
     save.payload.mineProgress['blackstone-shaft-7'] = {
       depositsBroken: 35,
@@ -382,7 +453,7 @@ test('mine progression shows combined requirements, pays a one-time unlock cost,
   await expect(page.locator('#incremental-deposit-name')).toHaveText(/Stone Face|Coal Seam|Copper Vein/);
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1')));
-  expect(saved.version).toBe(8);
+  expect(saved.version).toBe(9);
   expect(saved.payload.currentMine).toBe('abandoned-quarry');
   expect(saved.payload.unlockedMines).toContain('abandoned-quarry');
   expect(saved.payload.statistics.minesUnlocked).toBe(2);
@@ -401,7 +472,7 @@ test('mine progression shows combined requirements, pays a one-time unlock cost,
 
 test('high-speed separate worksites keep sale and upgrade controls stable and responsive', async ({ page }) => {
   await page.goto('/');
-  await page.locator('#incremental-story-continue').click();
+  await finishVisibleStory(page);
   await page.addInitScript(() => {
     if (sessionStorage.getItem('high-speed-seeded')) return;
     const key = 'blackstone_breakaway_save_miner-incremental_slot_1';
@@ -413,7 +484,7 @@ test('high-speed separate worksites keep sale and upgrade controls stable and re
     save.payload.character.xp = 0;
     save.payload.storyStage = 'company-owner';
     save.payload.employment.active = false;
-    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.contractBuyoutPaid = 5000;
     save.payload.employment.endedAt = now;
     save.payload.company = {
       created: true,
@@ -498,7 +569,7 @@ test('offline company production is capped, summarized, saved once, and excludes
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   await page.goto('/');
-  await page.locator('#incremental-story-continue').click();
+  await finishVisibleStory(page);
   await page.addInitScript(() => {
     if (sessionStorage.getItem('milestone-six-seeded')) return;
     const key = 'blackstone_breakaway_save_miner-incremental_slot_1';
@@ -509,7 +580,7 @@ test('offline company production is capped, summarized, saved once, and excludes
     save.payload.character.level = 3;
     save.payload.storyStage = 'company-owner';
     save.payload.employment.active = false;
-    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.contractBuyoutPaid = 5000;
     save.payload.employment.endedAt = now - 10_000;
     save.payload.company = {
       created: true,
@@ -548,7 +619,7 @@ test('offline company production is capped, summarized, saved once, and excludes
   await expect(page.locator('#incremental-event-banner')).toBeHidden();
 
   const firstReturn = await page.evaluate(() => JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1')));
-  expect(firstReturn.version).toBe(8);
+  expect(firstReturn.version).toBe(9);
   expect(firstReturn.payload.statistics.totalOfflineProduction).toBeGreaterThan(0);
   expect(firstReturn.payload.statistics.totalOfflineTime).toBeGreaterThanOrEqual(7200);
   expect(firstReturn.payload.statistics.offlineSessions).toBe(1);
@@ -575,7 +646,7 @@ test('Blackstone competition requirements, acquisition, story completion, and pr
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   await page.goto('/');
-  await page.locator('#incremental-story-continue').click();
+  await finishVisibleStory(page);
   await page.addInitScript(() => {
     if (sessionStorage.getItem('milestone-seven-seeded')) return;
     const key = 'blackstone_breakaway_save_miner-incremental_slot_1';
@@ -587,7 +658,7 @@ test('Blackstone competition requirements, acquisition, story completion, and pr
     save.payload.character.xp = 0;
     save.payload.storyStage = 'company-owner';
     save.payload.employment.active = false;
-    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.contractBuyoutPaid = 5000;
     save.payload.employment.endedAt = now - 10_000;
     save.payload.company = {
       created: true,
@@ -661,7 +732,7 @@ test('Blackstone competition requirements, acquisition, story completion, and pr
   await expect(page.locator('#incremental-employer')).toContainText('Blackstone Mining Co.');
 
   const acquired = await page.evaluate(() => JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1')));
-  expect(acquired.version).toBe(8);
+  expect(acquired.version).toBe(9);
   expect(acquired.payload.cash).toBe(0);
   expect(acquired.payload.storyStage).toBe('blackstone-owner');
   expect(acquired.payload.competition.acquired).toBe(true);
@@ -683,7 +754,12 @@ test.describe('touch viewport', () => {
 
   test('miner target remains touch-sized and contained on a phone viewport', async ({ page }) => {
     await page.goto('/');
-    await page.locator('#incremental-story-continue').click();
+    const storyDialogBox = await page.locator('.incremental-story-dialog').boundingBox();
+    expect(storyDialogBox.x).toBeGreaterThanOrEqual(0);
+    expect(storyDialogBox.x + storyDialogBox.width).toBeLessThanOrEqual(390);
+    const storyContinueBox = await page.locator('#incremental-story-continue').boundingBox();
+    expect(storyContinueBox.height).toBeGreaterThanOrEqual(44);
+    await finishVisibleStory(page);
     const navButtons = page.locator('.incremental-nav [role="tab"]');
     await expect(navButtons).toHaveCount(6);
     expect(await page.locator('.incremental-nav').evaluate((element) => getComputedStyle(element).position)).toBe('static');
@@ -716,6 +792,50 @@ test.describe('touch viewport', () => {
     await expect(target).toBeVisible();
 
     await page.addInitScript(() => {
+      if (sessionStorage.getItem('mobile-shift-lead-seeded')) return;
+      const key = 'blackstone_breakaway_save_miner-incremental_slot_1';
+      const save = JSON.parse(localStorage.getItem(key));
+      if (!save) return;
+      save.payload.cash = 1000;
+      save.payload.character.level = 9;
+      save.payload.employment.rankId = 'shift-lead';
+      save.payload.employment.completedPromotions = [
+        'new-hire', 'mine-worker', 'senior-miner', 'shift-lead',
+      ];
+      save.payload.employment.assignmentId = 'blackstone-production-heading';
+      save.payload.employment.depositsBroken = 150;
+      save.payload.employment.contractDiscovered = true;
+      save.payload.employment.completedScenes = [
+        'first-shift', 'first-promotion', 'senior-miner', 'shift-lead-contract',
+      ];
+      save.payload.employment.pendingScenes = [];
+      save.payload.employment.storyChoices = {
+        'first-promotion': 'ask-raise',
+        'senior-miner': 'demand-pay',
+        'shift-lead-contract': 'ill-get-it',
+      };
+      save.payload.currentDeposit = { id: 'iron-vein', hp: 80, maxHp: 80 };
+      save.payload.milestones = [];
+      localStorage.setItem(key, JSON.stringify(save));
+      sessionStorage.setItem('mobile-shift-lead-seeded', 'true');
+    });
+    await page.reload();
+    await expect(page.locator('#incremental-blackstone-coworkers')).toBeVisible();
+    await expect(page.locator('.incremental-blackstone-coworker-card')).toHaveCount(3);
+    for (let index = 0; index < 3; index += 1) {
+      const coworkerBox = await page.locator('.incremental-blackstone-coworker-card').nth(index).boundingBox();
+      expect(coworkerBox.x).toBeGreaterThanOrEqual(0);
+      expect(coworkerBox.x + coworkerBox.width).toBeLessThanOrEqual(390);
+    }
+    const buyoutBox = await page.locator('#incremental-buyout').boundingBox();
+    expect(buyoutBox.height).toBeGreaterThanOrEqual(44);
+    await expect(page.locator('#incremental-buyout')).toBeDisabled();
+    const personalHpBeforeCoworkerAnimation = await page.locator('#incremental-deposit-hp').textContent();
+    await page.waitForTimeout(900);
+    await expect(page.locator('#incremental-deposit-hp')).toHaveText(personalHpBeforeCoworkerAnimation);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+
+    await page.addInitScript(() => {
       if (sessionStorage.getItem('mobile-company-seeded')) return;
       const key = 'blackstone_breakaway_save_miner-incremental_slot_1';
       const save = JSON.parse(localStorage.getItem(key));
@@ -724,7 +844,7 @@ test.describe('touch viewport', () => {
       save.payload.character.level = 3;
       save.payload.storyStage = 'company-owner';
       save.payload.employment.active = false;
-      save.payload.employment.contractBuyoutPaid = 500;
+      save.payload.employment.contractBuyoutPaid = 5000;
       save.payload.employment.endedAt = Date.now();
       save.payload.company = {
         created: true,
@@ -796,6 +916,51 @@ test.describe('touch viewport', () => {
       const save = JSON.parse(localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1'));
       return save.payload.cash;
     })).toBe(cashBeforeMobileSale + 3);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  });
+
+  test('promotion choices remain readable, touch-sized, and reload-safe on mobile', async ({ page }) => {
+    await page.goto('/');
+    await finishVisibleStory(page);
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('mobile-promotion-seeded')) return;
+      const key = 'blackstone_breakaway_save_miner-incremental_slot_1';
+      const save = JSON.parse(localStorage.getItem(key));
+      if (!save) return;
+      save.payload.character.level = 3;
+      save.payload.employment.rankId = 'mine-worker';
+      save.payload.employment.completedPromotions = ['new-hire', 'mine-worker'];
+      save.payload.employment.assignmentId = 'shaft-7-lower';
+      save.payload.employment.depositsBroken = 38;
+      save.payload.employment.completedScenes = ['first-shift'];
+      save.payload.employment.pendingScenes = ['first-promotion'];
+      save.payload.currentDeposit = { id: 'coal-seam', hp: 30, maxHp: 30 };
+      localStorage.setItem(key, JSON.stringify(save));
+      sessionStorage.setItem('mobile-promotion-seeded', 'true');
+    });
+    await page.reload();
+    await expect(page.locator('#incremental-story-title')).toHaveText('The First Promotion');
+    await page.locator('#incremental-story-continue').tap();
+    const choices = page.locator('#incremental-story-choices button');
+    await expect(choices).toHaveCount(3);
+    for (let index = 0; index < 3; index += 1) {
+      const choiceBox = await choices.nth(index).boundingBox();
+      expect(choiceBox.height).toBeGreaterThanOrEqual(44);
+      expect(choiceBox.x).toBeGreaterThanOrEqual(0);
+      expect(choiceBox.x + choiceBox.width).toBeLessThanOrEqual(390);
+    }
+    await choices.first().tap();
+    await expect(page.locator('#incremental-story-text')).toContainText('Better workers');
+    await finishVisibleStory(page);
+    await expect(page.locator('#incremental-story-overlay')).toBeHidden();
+    const completed = await page.evaluate(() => JSON.parse(
+      localStorage.getItem('blackstone_breakaway_save_miner-incremental_slot_1'),
+    ));
+    expect(completed.payload.employment.storyChoices['first-promotion']).toBe('ask-raise');
+    expect(completed.payload.employment.completedScenes).toContain('first-promotion');
+    expect(completed.payload.employment.pendingScenes).not.toContain('first-promotion');
+    await page.reload();
+    await expect(page.locator('#incremental-story-overlay')).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   });
 });

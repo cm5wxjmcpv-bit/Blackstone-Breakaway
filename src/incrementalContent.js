@@ -21,6 +21,7 @@ const BUSINESS_EFFECT_TYPES = new Set([
 ]);
 const GENERATOR_VISUAL_TYPES = new Set(['miner', 'crew', 'drill']);
 const STORY_TRIGGER_TYPES = new Set(['start', 'level', 'cash', 'stage', 'contract-affordable']);
+const EMPLOYMENT_SCENE_ACTIONS = new Set(['none', 'discover-contract', 'complete-walkout']);
 const COMPETITION_TRIGGER_TYPES = new Set([
   'company-level',
   'mines-unlocked',
@@ -340,6 +341,336 @@ function normalizeEquipment(rawEquipment, errors) {
     items,
     slotsById: Object.fromEntries(slots.map((entry) => [entry.id, entry])),
     itemsById,
+  };
+}
+
+function normalizeEmployment(rawEmployment, context, errors) {
+  const source = rawEmployment && typeof rawEmployment === 'object' && !Array.isArray(rawEmployment)
+    ? rawEmployment
+    : {};
+  if (!rawEmployment || typeof rawEmployment !== 'object' || Array.isArray(rawEmployment)) {
+    errors.push('employment must be an object');
+  }
+  if (!Array.isArray(source.assignments) || source.assignments.length < 1) {
+    errors.push('employment.assignments must contain at least one entry');
+  }
+  if (!Array.isArray(source.ranks) || source.ranks.length < 1) {
+    errors.push('employment.ranks must contain at least one entry');
+  }
+  if (!Array.isArray(source.scenes) || source.scenes.length < 1) {
+    errors.push('employment.scenes must contain at least one entry');
+  }
+
+  const assignments = (Array.isArray(source.assignments) ? source.assignments : []).map((entry, index) => {
+    const label = `employment.assignments[${index}]`;
+    if (!Array.isArray(entry?.depositIds) || entry.depositIds.length < 1) {
+      errors.push(`${label}.depositIds must contain at least one entry`);
+    }
+    if (entry?.rewardMultiplier !== undefined
+      && (!isFiniteNumber(entry.rewardMultiplier) || entry.rewardMultiplier < 1)) {
+      errors.push(`${label}.rewardMultiplier must be a finite number of at least 1`);
+    }
+    if (entry?.xpMultiplier !== undefined
+      && (!isFiniteNumber(entry.xpMultiplier) || entry.xpMultiplier < 1)) {
+      errors.push(`${label}.xpMultiplier must be a finite number of at least 1`);
+    }
+    const depositIds = Array.isArray(entry?.depositIds)
+      ? entry.depositIds.map(normalizedId).filter(Boolean)
+      : [];
+    const rawMultipliers = entry?.depositWeightMultipliers;
+    if (rawMultipliers !== undefined
+      && (!rawMultipliers || typeof rawMultipliers !== 'object' || Array.isArray(rawMultipliers))) {
+      errors.push(`${label}.depositWeightMultipliers must be an object when provided`);
+    }
+    const depositWeightMultipliers = {};
+    Object.entries(rawMultipliers && typeof rawMultipliers === 'object' && !Array.isArray(rawMultipliers)
+      ? rawMultipliers
+      : {}).forEach(([rawDepositId, multiplier]) => {
+      const depositId = normalizedId(rawDepositId);
+      if (!depositId || !depositIds.includes(depositId)) {
+        errors.push(`${label}.depositWeightMultipliers references unavailable deposit "${depositId || rawDepositId}"`);
+      }
+      if (!isFiniteNumber(multiplier) || multiplier < 0) {
+        errors.push(`${label}.depositWeightMultipliers.${rawDepositId} must be finite and nonnegative`);
+      }
+      if (depositId) depositWeightMultipliers[depositId] = nonnegative(multiplier);
+    });
+    if (entry?.coworkers !== undefined && !Array.isArray(entry.coworkers)) {
+      errors.push(`${label}.coworkers must be an array when provided`);
+    }
+    const coworkers = (Array.isArray(entry?.coworkers) ? entry.coworkers : []).map(
+      (coworker, coworkerIndex) => ({
+        id: normalizedId(coworker?.id),
+        name: text(coworker?.name, `Blackstone Miner ${coworkerIndex + 1}`, 80),
+        role: text(coworker?.role, 'Blackstone Miner', 100),
+        depositId: normalizedId(coworker?.depositId),
+      }),
+    );
+    uniqueIds(coworkers, `${label}.coworkers`, errors);
+    coworkers.forEach((coworker) => {
+      if (!depositIds.includes(coworker.depositId)) {
+        errors.push(`${label} coworker "${coworker.id || '(invalid)'}" references unavailable deposit "${coworker.depositId || '(invalid)'}"`);
+      }
+    });
+    return {
+      id: normalizedId(entry?.id),
+      name: text(entry?.name, entry?.id || 'Blackstone Assignment', 100),
+      locationName: text(entry?.locationName, entry?.name || 'Blackstone Worksite', 100),
+      description: text(entry?.description, '', 280),
+      instruction: text(entry?.instruction, 'Meet the production target and keep the heading moving.', 240),
+      depositIds,
+      depositWeightMultipliers,
+      rewardMultiplier: Math.max(1, finite(entry?.rewardMultiplier, 1)),
+      xpMultiplier: Math.max(1, finite(entry?.xpMultiplier, 1)),
+      coworkers,
+      visual: {
+        background: color(entry?.visual?.background, '#29221f'),
+        accent: color(entry?.visual?.accent, '#f0b94d'),
+      },
+    };
+  });
+  const assignmentIds = uniqueIds(assignments, 'employment.assignments', errors);
+  assignments.forEach((assignment) => {
+    if (new Set(assignment.depositIds).size !== assignment.depositIds.length) {
+      errors.push(`employment assignment "${assignment.id || '(invalid)'}" contains duplicate deposit references`);
+    }
+    assignment.depositIds.forEach((depositId) => {
+      if (!context.depositsById[depositId]) {
+        errors.push(`employment assignment "${assignment.id || '(invalid)'}" references missing deposit "${depositId}"`);
+      }
+    });
+    const hasWeightedDeposit = assignment.depositIds.some((depositId) => (
+      (context.depositsById[depositId]?.weight || 0)
+      * (assignment.depositWeightMultipliers[depositId] ?? 1) > 0
+    ));
+    if (!hasWeightedDeposit) {
+      errors.push(`employment assignment "${assignment.id || '(invalid)'}" must leave at least one deposit selectable`);
+    }
+  });
+
+  const scenes = (Array.isArray(source.scenes) ? source.scenes : []).map((entry, sceneIndex) => {
+    const label = `employment.scenes[${sceneIndex}]`;
+    if (!Array.isArray(entry?.steps) || entry.steps.length < 1) {
+      errors.push(`${label}.steps must contain at least one entry`);
+    }
+    const completionAction = normalizedId(entry?.completionAction) || 'none';
+    if (!EMPLOYMENT_SCENE_ACTIONS.has(completionAction)) {
+      errors.push(`${label}.completionAction is unsupported`);
+    }
+    const steps = (Array.isArray(entry?.steps) ? entry.steps : []).map((step, stepIndex) => {
+      const stepLabel = `${label}.steps[${stepIndex}]`;
+      if (step?.choices !== undefined && !Array.isArray(step.choices)) {
+        errors.push(`${stepLabel}.choices must be an array when provided`);
+      }
+      const choices = (Array.isArray(step?.choices) ? step.choices : []).map((choice) => ({
+        id: normalizedId(choice?.id),
+        label: text(choice?.label, choice?.id || 'Respond', 120),
+        responseSpeaker: text(choice?.responseSpeaker, source.foremanName || 'Foreman', 100),
+        responseText: text(choice?.responseText, '', 360),
+      }));
+      uniqueIds(choices, `${stepLabel}.choices`, errors);
+      choices.forEach((choice) => {
+        if (!choice.responseText) errors.push(`${stepLabel} choice "${choice.id || '(invalid)'}" must provide responseText`);
+      });
+      const stepText = text(step?.text, '', 420);
+      if (!stepText && choices.length < 1) {
+        errors.push(`${stepLabel} must provide text or choices`);
+      }
+      return {
+        speaker: text(step?.speaker, '', 100),
+        text: stepText,
+        prompt: text(step?.prompt, choices.length ? 'How do you answer?' : '', 180),
+        choices,
+      };
+    });
+    const sceneChoiceIds = steps.flatMap((step) => step.choices.map((choice) => choice.id));
+    if (new Set(sceneChoiceIds).size !== sceneChoiceIds.length) {
+      errors.push(`${label} choice ids must be unique across the entire scene`);
+    }
+    if (entry?.historyEntries !== undefined && !Array.isArray(entry.historyEntries)) {
+      errors.push(`${label}.historyEntries must be an array when provided`);
+    }
+    const historyEntries = (Array.isArray(entry?.historyEntries) ? entry.historyEntries : []).map(
+      (historyEntry) => ({
+        id: normalizedId(historyEntry?.id),
+        title: text(historyEntry?.title, historyEntry?.id || 'Story Event', 120),
+      }),
+    );
+    uniqueIds(historyEntries, `${label}.historyEntries`, errors);
+    return {
+      id: normalizedId(entry?.id),
+      title: text(entry?.title, entry?.id || 'Blackstone Story', 120),
+      location: text(entry?.location, 'Blackstone Mining Co.', 120),
+      artId: normalizedId(entry?.artId),
+      blocking: entry?.blocking !== false,
+      completionAction,
+      historyEntries,
+      steps,
+    };
+  });
+  const sceneIds = uniqueIds(scenes, 'employment.scenes', errors);
+  const scenesById = Object.fromEntries(scenes.map((scene) => [scene.id, scene]));
+  const historyIds = scenes.flatMap((scene) => scene.historyEntries.map((entry) => entry.id));
+  if (new Set(historyIds).size !== historyIds.length) {
+    errors.push('employment scene history entry ids must be unique across the chapter');
+  }
+
+  const ranks = (Array.isArray(source.ranks) ? source.ranks : []).map((entry, index) => {
+    const label = `employment.ranks[${index}]`;
+    const requirements = entry?.promotionRequirements || {};
+    if (!Number.isInteger(requirements.requiredLevel) || requirements.requiredLevel < 1) {
+      errors.push(`${label}.promotionRequirements.requiredLevel must be a positive integer`);
+    }
+    if (!Number.isInteger(requirements.requiredEmployeeDeposits) || requirements.requiredEmployeeDeposits < 0) {
+      errors.push(`${label}.promotionRequirements.requiredEmployeeDeposits must be a nonnegative integer`);
+    }
+    if (!isFiniteNumber(requirements.requiredCompanyValue) || requirements.requiredCompanyValue < 0) {
+      errors.push(`${label}.promotionRequirements.requiredCompanyValue must be finite and nonnegative`);
+    }
+    if (!isFiniteNumber(entry?.wageShare) || entry.wageShare < 0 || entry.wageShare > 1) {
+      errors.push(`${label}.wageShare must be between 0 and 1`);
+    }
+    if (!isFiniteNumber(entry?.minimumWage) || entry.minimumWage < 0) {
+      errors.push(`${label}.minimumWage must be finite and nonnegative`);
+    }
+    return {
+      id: normalizedId(entry?.id),
+      name: text(entry?.name, entry?.id || 'Employee Rank', 100),
+      role: text(entry?.role, entry?.name || 'Blackstone Employee', 100),
+      assignmentId: normalizedId(entry?.assignmentId),
+      companyToolId: normalizedId(entry?.companyToolId),
+      wageShare: Math.max(0, Math.min(1, finite(entry?.wageShare, 0))),
+      minimumWage: nonnegative(entry?.minimumWage),
+      promotionSceneId: normalizedId(entry?.promotionSceneId),
+      promotionRequirements: {
+        requiredLevel: integer(requirements.requiredLevel, 1, 1),
+        requiredEmployeeDeposits: integer(requirements.requiredEmployeeDeposits, 0),
+        requiredCompanyValue: nonnegative(requirements.requiredCompanyValue),
+      },
+    };
+  });
+  const rankIds = uniqueIds(ranks, 'employment.ranks', errors);
+  const ranksById = Object.fromEntries(ranks.map((rank) => [rank.id, rank]));
+  ranks.forEach((rank, index) => {
+    if (!assignmentIds.has(rank.assignmentId)) {
+      errors.push(`employment rank "${rank.id || '(invalid)'}" references missing assignment "${rank.assignmentId || '(invalid)'}"`);
+    }
+    const companyTool = context.equipment.itemsById[rank.companyToolId];
+    if (!companyTool) {
+      errors.push(`employment rank "${rank.id || '(invalid)'}" references missing company tool "${rank.companyToolId || '(invalid)'}"`);
+    } else if (companyTool.slotId !== 'tool') {
+      errors.push(`employment rank "${rank.id || '(invalid)'}" company tool must use the tool slot`);
+    }
+    if (rank.promotionSceneId && !sceneIds.has(rank.promotionSceneId)) {
+      errors.push(`employment rank "${rank.id || '(invalid)'}" references missing promotion scene "${rank.promotionSceneId}"`);
+    }
+    if (index > 0) {
+      const prior = ranks[index - 1].promotionRequirements;
+      const current = rank.promotionRequirements;
+      if (current.requiredLevel < prior.requiredLevel
+        || current.requiredEmployeeDeposits < prior.requiredEmployeeDeposits
+        || current.requiredCompanyValue < prior.requiredCompanyValue) {
+        errors.push(`employment rank "${rank.id || '(invalid)'}" promotion requirements must not decrease`);
+      }
+      if (!rank.promotionSceneId) {
+        errors.push(`employment rank "${rank.id || '(invalid)'}" must reference a promotion scene`);
+      }
+    }
+  });
+
+  const startingRankId = normalizedId(source.startingRankId);
+  const contractDiscoveryRankId = normalizedId(source.contractDiscoveryRankId);
+  const introSceneId = normalizedId(source.introSceneId);
+  const walkoutSceneId = normalizedId(source.walkoutSceneId);
+  const freedomSceneId = normalizedId(source.freedomSceneId);
+  if (!rankIds.has(startingRankId)) errors.push('employment.startingRankId must reference an employee rank');
+  if (ranks[0]?.id !== startingRankId) errors.push('employment.startingRankId must be the first configured rank');
+  if (!rankIds.has(contractDiscoveryRankId)) errors.push('employment.contractDiscoveryRankId must reference an employee rank');
+  [
+    ['introSceneId', introSceneId],
+    ['walkoutSceneId', walkoutSceneId],
+    ['freedomSceneId', freedomSceneId],
+  ].forEach(([field, sceneId]) => {
+    if (!sceneIds.has(sceneId)) errors.push(`employment.${field} must reference a story scene`);
+  });
+  const discoveryRank = ranksById[contractDiscoveryRankId];
+  if (discoveryRank && scenesById[discoveryRank.promotionSceneId]?.completionAction !== 'discover-contract') {
+    errors.push('the contract discovery rank scene must use the discover-contract completion action');
+  }
+  if (scenesById[introSceneId] && scenesById[introSceneId].completionAction !== 'none') {
+    errors.push('the employment intro scene must not perform a transaction action');
+  }
+  if (scenesById[walkoutSceneId]?.completionAction !== 'complete-walkout') {
+    errors.push('the Walkout scene must use the complete-walkout completion action');
+  }
+  if (scenesById[freedomSceneId] && scenesById[freedomSceneId].completionAction !== 'none') {
+    errors.push('the Freedom Claim scene must not perform a transaction action');
+  }
+  if (scenes.filter((scene) => scene.completionAction === 'discover-contract').length !== 1) {
+    errors.push('employment must define exactly one contract discovery scene');
+  }
+  if (scenes.filter((scene) => scene.completionAction === 'complete-walkout').length !== 1) {
+    errors.push('employment must define exactly one Walkout transaction scene');
+  }
+
+  if (source.notices !== undefined && !Array.isArray(source.notices)) {
+    errors.push('employment.notices must be an array when provided');
+  }
+  const notices = (Array.isArray(source.notices) ? source.notices : []).map((entry, index) => {
+    if (!Number.isInteger(entry?.requiredEmployeeDeposits) || entry.requiredEmployeeDeposits < 0) {
+      errors.push(`employment.notices[${index}].requiredEmployeeDeposits must be a nonnegative integer`);
+    }
+    return {
+      id: normalizedId(entry?.id),
+      rankId: normalizedId(entry?.rankId),
+      requiredEmployeeDeposits: integer(entry?.requiredEmployeeDeposits, 0),
+      speaker: text(entry?.speaker, 'Blackstone Notice', 100),
+      text: text(entry?.text, '', 300),
+    };
+  });
+  uniqueIds(notices, 'employment.notices', errors);
+  notices.forEach((notice) => {
+    if (!rankIds.has(notice.rankId)) {
+      errors.push(`employment notice "${notice.id || '(invalid)'}" references missing rank "${notice.rankId || '(invalid)'}"`);
+    }
+  });
+
+  const rawStoreDialogue = source.storeDialogue;
+  if (rawStoreDialogue !== undefined
+    && (!rawStoreDialogue || typeof rawStoreDialogue !== 'object' || Array.isArray(rawStoreDialogue))) {
+    errors.push('employment.storeDialogue must be an object when provided');
+  }
+  const storeDialogue = {};
+  const allowedStoreDialogueIds = new Set([...rankIds, 'contract-discovered', 'independent']);
+  Object.entries(rawStoreDialogue && typeof rawStoreDialogue === 'object' && !Array.isArray(rawStoreDialogue)
+    ? rawStoreDialogue
+    : {}).forEach(([rawId, dialogue]) => {
+    const id = normalizedId(rawId);
+    if (!id) errors.push(`employment.storeDialogue contains unsafe key "${rawId}"`);
+    else if (!allowedStoreDialogueIds.has(id)) {
+      errors.push(`employment.storeDialogue references unknown chapter state "${id}"`);
+    }
+    else storeDialogue[id] = text(dialogue, '', 240);
+  });
+
+  return {
+    companyId: context.companyId,
+    companyName: text(source.companyName, 'Mining Company', 100),
+    foremanName: text(source.foremanName, 'Foreman', 100),
+    contractBuyoutCost: context.contractBuyoutCost,
+    startingRankId,
+    contractDiscoveryRankId,
+    introSceneId,
+    walkoutSceneId,
+    freedomSceneId,
+    assignments,
+    assignmentsById: Object.fromEntries(assignments.map((assignment) => [assignment.id, assignment])),
+    ranks,
+    ranksById,
+    scenes,
+    scenesById,
+    notices,
+    storeDialogue,
   };
 }
 
@@ -1353,6 +1684,12 @@ export function normalizeIncrementalConfig(raw, options = {}) {
   const skills = normalizeSkills(raw.skills, skillBranches, errors);
   const milestones = normalizeMilestones(raw.story, errors);
   const equipment = normalizeEquipment(raw.equipment, errors);
+  const employment = normalizeEmployment(raw.employment, {
+    companyId: employerId,
+    contractBuyoutCost: nonnegative(contractBuyoutCost),
+    depositsById,
+    equipment,
+  }, errors);
   const lottery = normalizeLottery(raw.lottery, resourcesById, errors);
   const store = normalizeStore(raw.store, equipment, lottery, errors);
   const company = normalizeCompany(raw.company, errors);
@@ -1418,19 +1755,17 @@ export function normalizeIncrementalConfig(raw, options = {}) {
       depositId: startDepositId,
       storyStage,
     },
-    employment: {
-      companyId: employerId,
-      companyName: text(raw.employment?.companyName, 'Mining Company', 100),
-      role: text(raw.employment?.role, 'Mine Worker', 100),
-      foremanName: text(raw.employment?.foremanName, 'Foreman', 100),
-      contractBuyoutCost: nonnegative(contractBuyoutCost),
-    },
+    employment,
     independence: {
       role: text(raw.independence?.role, 'Independent Miner', 100),
       operationName: text(raw.independence?.operationName, 'Independent Claim', 100),
       locationName: text(raw.independence?.locationName, 'Independent Claim', 100),
       subtitle: text(raw.independence?.subtitle, 'The claim is small, but every resource belongs to you.', 220),
       instruction: text(raw.independence?.instruction, 'Mine deposits and keep every resource you recover.', 220),
+      visual: {
+        background: color(raw.independence?.visual?.background, '#312a24'),
+        accent: color(raw.independence?.visual?.accent, '#c98d58'),
+      },
     },
     ui: {
       title: text(raw.ui?.title, raw.name || configId, 100),
@@ -1493,14 +1828,19 @@ function selectWeightedEntry(entries, random, weightFor = (entry) => entry.weigh
   return weighted.at(-1)?.entry || null;
 }
 
-export function selectWeightedDeposit(config, mineId, random = Math.random, weightMultipliers = {}) {
-  const mine = config.minesById[mineId];
-  if (!mine) throw new Error(`Unknown mine "${mineId}".`);
-  const deposits = mine.depositIds.map((id) => config.depositsById[id]);
+export function selectWeightedDepositFromIds(config, depositIds, random = Math.random, weightMultipliers = {}) {
+  const deposits = depositIds.map((id) => config.depositsById[id]).filter(Boolean);
+  if (!deposits.length) throw new Error('No valid deposits were provided for weighted selection.');
   return selectWeightedEntry(deposits, random, (deposit) => {
     const multiplier = finite(weightMultipliers?.[deposit.id], 1);
     return deposit.weight * Math.max(0, multiplier);
   }) || deposits[0];
+}
+
+export function selectWeightedDeposit(config, mineId, random = Math.random, weightMultipliers = {}) {
+  const mine = config.minesById[mineId];
+  if (!mine) throw new Error(`Unknown mine "${mineId}".`);
+  return selectWeightedDepositFromIds(config, mine.depositIds, random, weightMultipliers);
 }
 
 export function selectWeightedRareFind(config, mineId, random = Math.random) {

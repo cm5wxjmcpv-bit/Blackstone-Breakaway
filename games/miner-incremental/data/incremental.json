@@ -35,16 +35,429 @@
   "employment": {
     "companyId": "blackstone-mining",
     "companyName": "Blackstone Mining Co.",
-    "role": "Underpaid Mine Worker",
     "foremanName": "Foreman Cole",
-    "contractBuyoutCost": 500
+    "contractBuyoutCost": 5000,
+    "startingRankId": "new-hire",
+    "contractDiscoveryRankId": "shift-lead",
+    "introSceneId": "first-shift",
+    "walkoutSceneId": "the-walkout",
+    "freedomSceneId": "freedom-claim-arrival",
+    "assignments": [
+      {
+        "id": "shaft-7-entry",
+        "name": "Shaft 7 — Entry Heading",
+        "locationName": "Blackstone Shaft 7",
+        "description": "A shallow production heading where new hires sort waste stone from workable coal.",
+        "instruction": "Break assigned Stone and Coal deposits. Blackstone keeps the ore and pays your posted wage.",
+        "depositIds": ["stone-face", "coal-seam"],
+        "depositWeightMultipliers": {
+          "stone-face": 1.4,
+          "coal-seam": 0.7
+        },
+        "rewardMultiplier": 1,
+        "xpMultiplier": 1,
+        "coworkers": [],
+        "visual": {
+          "background": "#29221f",
+          "accent": "#d4a14d"
+        }
+      },
+      {
+        "id": "shaft-7-lower",
+        "name": "Shaft 7 — Lower Heading",
+        "locationName": "Blackstone Shaft 7 — Lower Heading",
+        "description": "A better-supported heading with reliable coal and narrow copper seams.",
+        "instruction": "Keep the lower heading moving. More valuable ore means a higher production expectation, not a larger share.",
+        "depositIds": ["coal-seam", "copper-vein"],
+        "depositWeightMultipliers": {
+          "coal-seam": 1.2,
+          "copper-vein": 0.9
+        },
+        "rewardMultiplier": 1.1,
+        "xpMultiplier": 1.05,
+        "coworkers": [],
+        "visual": {
+          "background": "#252321",
+          "accent": "#bd6f45"
+        }
+      },
+      {
+        "id": "blackstone-east-vein",
+        "name": "Blackstone East Vein",
+        "locationName": "Blackstone East Vein",
+        "description": "A productive copper-and-iron heading reserved for miners Cole trusts to work without supervision.",
+        "instruction": "Work the East Vein and maintain Senior Miner output. Blackstone's ledger records every dollar generated.",
+        "depositIds": ["copper-vein", "iron-vein"],
+        "depositWeightMultipliers": {
+          "copper-vein": 0.8,
+          "iron-vein": 1.4
+        },
+        "rewardMultiplier": 1.25,
+        "xpMultiplier": 1.1,
+        "coworkers": [],
+        "visual": {
+          "background": "#222629",
+          "accent": "#aab2b6"
+        }
+      },
+      {
+        "id": "blackstone-production-heading",
+        "name": "Blackstone Production Heading",
+        "locationName": "Blackstone Production Heading",
+        "description": "Blackstone's busiest active heading, where iron drives the shift and silver appears often enough to matter.",
+        "instruction": "Lead by producing. The other Blackstone miners work separate faces; none of their output enters your inventory.",
+        "depositIds": ["iron-vein", "silver-vein"],
+        "depositWeightMultipliers": {
+          "iron-vein": 2,
+          "silver-vein": 0.5
+        },
+        "rewardMultiplier": 1.5,
+        "xpMultiplier": 1.15,
+        "coworkers": [
+          {
+            "id": "mara-vance",
+            "name": "Mara Vance",
+            "role": "Iron Face Miner",
+            "depositId": "iron-vein"
+          },
+          {
+            "id": "eli-brooks",
+            "name": "Eli Brooks",
+            "role": "Silver Heading Miner",
+            "depositId": "silver-vein"
+          },
+          {
+            "id": "sam-ortiz",
+            "name": "Sam Ortiz",
+            "role": "Production Miner",
+            "depositId": "iron-vein"
+          }
+        ],
+        "visual": {
+          "background": "#20262a",
+          "accent": "#c8d0d4"
+        }
+      }
+    ],
+    "ranks": [
+      {
+        "id": "new-hire",
+        "name": "New Hire",
+        "role": "New Hire / Laborer",
+        "assignmentId": "shaft-7-entry",
+        "companyToolId": "rusty-pickaxe",
+        "wageShare": 0.08,
+        "minimumWage": 1,
+        "promotionRequirements": {
+          "requiredLevel": 1,
+          "requiredEmployeeDeposits": 0,
+          "requiredCompanyValue": 0
+        }
+      },
+      {
+        "id": "mine-worker",
+        "name": "Mine Worker",
+        "role": "Blackstone Mine Worker",
+        "assignmentId": "shaft-7-lower",
+        "companyToolId": "iron-pickaxe",
+        "wageShare": 0.08,
+        "minimumWage": 1,
+        "promotionSceneId": "first-promotion",
+        "promotionRequirements": {
+          "requiredLevel": 3,
+          "requiredEmployeeDeposits": 32,
+          "requiredCompanyValue": 500
+        }
+      },
+      {
+        "id": "senior-miner",
+        "name": "Senior Miner",
+        "role": "Blackstone Senior Miner",
+        "assignmentId": "blackstone-east-vein",
+        "companyToolId": "steel-pickaxe",
+        "wageShare": 0.09,
+        "minimumWage": 2,
+        "promotionSceneId": "senior-miner",
+        "promotionRequirements": {
+          "requiredLevel": 5,
+          "requiredEmployeeDeposits": 80,
+          "requiredCompanyValue": 1700
+        }
+      },
+      {
+        "id": "shift-lead",
+        "name": "Shift Lead",
+        "role": "Blackstone Shift Lead",
+        "assignmentId": "blackstone-production-heading",
+        "companyToolId": "hardened-pickaxe",
+        "wageShare": 0.1,
+        "minimumWage": 3,
+        "promotionSceneId": "shift-lead-contract",
+        "promotionRequirements": {
+          "requiredLevel": 7,
+          "requiredEmployeeDeposits": 150,
+          "requiredCompanyValue": 9000
+        }
+      }
+    ],
+    "scenes": [
+      {
+        "id": "first-shift",
+        "title": "First Shift",
+        "location": "Blackstone Shaft 7 — Entry Heading",
+        "artId": "blackstone-shaft-7-new-hire",
+        "blocking": true,
+        "completionAction": "none",
+        "historyEntries": [
+          { "id": "first-shift", "title": "First Shift" }
+        ],
+        "steps": [
+          {
+            "speaker": "Foreman Cole",
+            "text": "Shaft 7. Blackstone owns the ground, the equipment, and every resource that comes out of it. Your job is to keep the heading moving."
+          },
+          {
+            "speaker": "Foreman Cole",
+            "text": "The company records the full value. You receive the posted wage. Hit the shift targets and I can put you on better work."
+          },
+          {
+            "speaker": "Foreman Cole",
+            "text": "Keep swinging. There are twenty men waiting for your job."
+          }
+        ]
+      },
+      {
+        "id": "first-promotion",
+        "title": "The First Promotion",
+        "location": "Foreman Cole's Office",
+        "artId": "foreman-cole-office",
+        "blocking": true,
+        "completionAction": "none",
+        "historyEntries": [
+          { "id": "promoted-mine-worker", "title": "Promoted to Mine Worker" }
+        ],
+        "steps": [
+          {
+            "speaker": "Foreman Cole",
+            "text": "Your numbers are better than most of the new hires. I'm moving you to the lower heading as a Mine Worker."
+          },
+          {
+            "speaker": "Player",
+            "text": "The word promotion sounds promising.",
+            "prompt": "How do you answer?",
+            "choices": [
+              {
+                "id": "ask-raise",
+                "label": "Does it come with a raise?",
+                "responseSpeaker": "Foreman Cole",
+                "responseText": "It comes with better ground and Blackstone trusting you with it. Better workers are expected to produce more."
+              },
+              {
+                "id": "start-now",
+                "label": "When do I start?",
+                "responseSpeaker": "Foreman Cole",
+                "responseText": "Next shift. Company iron pick, lower heading. Keep the same pace and the copper will do the rest."
+              },
+              {
+                "id": "ask-assignment",
+                "label": "What's the new assignment?",
+                "responseSpeaker": "Foreman Cole",
+                "responseText": "Coal and copper below Shaft 7. More valuable rock, tighter production numbers."
+              }
+            ]
+          },
+          {
+            "speaker": "Foreman Cole",
+            "text": "Advancement means responsibility. Show me you can hold the lower heading."
+          }
+        ]
+      },
+      {
+        "id": "senior-miner",
+        "title": "Senior Miner",
+        "location": "Blackstone East Vein",
+        "artId": "senior-miner-underground-heading",
+        "blocking": true,
+        "completionAction": "none",
+        "historyEntries": [
+          { "id": "promoted-senior-miner", "title": "Promoted to Senior Miner" }
+        ],
+        "steps": [
+          {
+            "speaker": "Foreman Cole",
+            "text": "You're one of the best producers I've got. The East Vein is yours, and Blackstone is issuing you a steel pick."
+          },
+          {
+            "speaker": "Player",
+            "text": "Cole waits for your answer.",
+            "prompt": "How do you answer?",
+            "choices": [
+              {
+                "id": "remember-replaceable",
+                "label": "You said I was replaceable.",
+                "responseSpeaker": "Foreman Cole",
+                "responseText": "Everybody is. Good producers are simply harder to replace."
+              },
+              {
+                "id": "demand-pay",
+                "label": "Then pay me like your best producer.",
+                "responseSpeaker": "Foreman Cole",
+                "responseText": "Blackstone supplies the mine, safety crews, processing, customers, and steady checks. The East Vein is the reward."
+              },
+              {
+                "id": "ask-heading",
+                "label": "Just tell me where I'm working.",
+                "responseSpeaker": "Foreman Cole",
+                "responseText": "East Vein. Copper on the near face, iron past the second support."
+              }
+            ]
+          },
+          {
+            "speaker": "Foreman Cole",
+            "text": "Keep that heading productive and I won't put somebody else on it."
+          }
+        ]
+      },
+      {
+        "id": "shift-lead-contract",
+        "title": "Shift Lead",
+        "location": "Foreman Cole's Office",
+        "artId": "shift-lead-contract-paperwork",
+        "blocking": true,
+        "completionAction": "discover-contract",
+        "historyEntries": [
+          { "id": "promoted-shift-lead", "title": "Promoted to Shift Lead" },
+          { "id": "discovered-contract-buyout", "title": "Discovered Contract Buyout" }
+        ],
+        "steps": [
+          {
+            "speaker": "Foreman Cole",
+            "text": "Production wants you as Shift Lead on the main heading. You'll still mine, but the other crews will follow your pace."
+          },
+          {
+            "speaker": "Player",
+            "text": "The compensation line barely changes. A release clause lower on the page catches your eye.",
+            "prompt": "What do you say?",
+            "choices": [
+              {
+                "id": "five-thousand",
+                "label": "Five thousand?",
+                "responseSpeaker": "Foreman Cole",
+                "responseText": "That's the remainder of your employment term. Not many miners have five thousand dollars lying around."
+              },
+              {
+                "id": "ill-get-it",
+                "label": "I'll get it.",
+                "responseSpeaker": "Foreman Cole",
+                "responseText": "And then what? Blackstone provides everything between the rock face and a paying customer."
+              },
+              {
+                "id": "think-i-cant",
+                "label": "You really think I can't?",
+                "responseSpeaker": "Foreman Cole",
+                "responseText": "I think you're a fine miner. I also think a fine miner and a mining company are very different things."
+              }
+            ]
+          },
+          {
+            "speaker": "Foreman Cole",
+            "text": "Sign the promotion papers. The release clause will still be there if you ever have the money."
+          }
+        ]
+      },
+      {
+        "id": "the-walkout",
+        "title": "The Walkout",
+        "location": "Blackstone Contract Office",
+        "artId": "contract-office-walkout",
+        "blocking": true,
+        "completionAction": "complete-walkout",
+        "historyEntries": [
+          { "id": "the-walkout", "title": "The Walkout" }
+        ],
+        "steps": [
+          {
+            "speaker": "Contract Clerk",
+            "text": "Five thousand dollars received. Sign here and Blackstone releases the remainder of your employment term."
+          },
+          {
+            "speaker": "Foreman Cole",
+            "text": "That independent claim is shallow ground with bad access. You paid five thousand dollars for the privilege of going broke."
+          },
+          {
+            "speaker": "Player",
+            "text": "At least I'll be going broke for myself."
+          },
+          {
+            "speaker": "Foreman Cole",
+            "text": "You know how to produce. I'll give you that. When the claim dries up, Blackstone will still be here."
+          }
+        ]
+      },
+      {
+        "id": "freedom-claim-arrival",
+        "title": "Freedom Claim",
+        "location": "Freedom Claim",
+        "artId": "freedom-claim-arrival",
+        "blocking": true,
+        "completionAction": "none",
+        "historyEntries": [
+          { "id": "freedom-claim-arrival", "title": "Arrived at Freedom Claim" }
+        ],
+        "steps": [
+          {
+            "speaker": "Player",
+            "text": "No processing plant. No company crews. No Blackstone sign. Just a rough claim, a personal tool, and a rock face that belongs to you."
+          },
+          {
+            "speaker": "Player",
+            "text": "The operation is smaller. The infrastructure is worse. But one hundred percent of everything you recover is yours."
+          }
+        ]
+      }
+    ],
+    "notices": [
+      {
+        "id": "new-hire-output-notice",
+        "rankId": "new-hire",
+        "requiredEmployeeDeposits": 14,
+        "speaker": "Blackstone Notice",
+        "text": "Your production is above the new-hire shift target. Compensation remains unchanged."
+      },
+      {
+        "id": "lower-heading-coworker",
+        "rankId": "mine-worker",
+        "requiredEmployeeDeposits": 52,
+        "speaker": "Coworker",
+        "text": "They moved you to the lower heading already? Cole must like your numbers."
+      },
+      {
+        "id": "senior-production-notice",
+        "rankId": "senior-miner",
+        "requiredEmployeeDeposits": 112,
+        "speaker": "Blackstone Notice",
+        "text": "East Vein output is fourteen percent above target. Compensation remains unchanged."
+      }
+    ],
+    "storeDialogue": {
+      "new-hire": "Blackstone still issuing those old picks?",
+      "mine-worker": "Promotion, huh? Let me guess. More work.",
+      "senior-miner": "Senior Miner sounds important. Your pay packet look important too?",
+      "shift-lead": "Shift Lead? Cole must trust your numbers, even if payroll doesn't.",
+      "contract-discovered": "Five grand is a lot of money. But freedom usually is.",
+      "independent": "You look different without a Blackstone shift bell telling you when to swing."
+    }
   },
   "independence": {
     "role": "Independent Miner",
     "operationName": "Freedom Claim",
     "locationName": "Freedom Claim",
     "subtitle": "The claim is small, but every resource you recover now belongs to you.",
-    "instruction": "This ore is yours. Break deposits, build a personal stockpile, and sell it directly for full value."
+    "instruction": "This ore is yours. Break deposits, build a personal stockpile, and sell it directly for full value.",
+    "visual": {
+      "background": "#3b3027",
+      "accent": "#d49a62"
+    }
   },
   "ui": {
     "title": "Blackstone Breakaway",
@@ -1008,51 +1421,12 @@
   "story": {
     "milestones": [
       {
-        "id": "blackstone-first-shift",
-        "title": "First Shift",
-        "speaker": "Foreman Cole",
-        "text": "Keep swinging. There are twenty men waiting for your job.",
-        "trigger": {
-          "type": "start"
-        }
-      },
-      {
-        "id": "blackstone-level-two",
-        "title": "A Stronger Swing",
-        "speaker": "Foreman Cole",
-        "text": "Getting faster, are you? Blackstone still owns every rock you break.",
-        "trigger": {
-          "type": "level",
-          "value": 2
-        }
-      },
-      {
-        "id": "blackstone-level-four",
-        "title": "Management Has Noticed",
-        "speaker": "Blackstone Notice",
-        "text": "Your shift output is above target. Your wage rate remains unchanged.",
-        "trigger": {
-          "type": "level",
-          "value": 4
-        }
-      },
-      {
         "id": "contract-within-reach",
-        "title": "Freedom Is Affordable",
+        "title": "You Can Leave Blackstone",
         "speaker": "Contract Office",
-        "text": "You now have enough cash to buy out your employment contract.",
+        "text": "You now have enough cash to pay the release clause. Blackstone will not spend it automatically; the choice is yours.",
         "trigger": {
           "type": "contract-affordable"
-        }
-      },
-      {
-        "id": "contract-bought",
-        "title": "Independent Miner",
-        "speaker": "Foreman Cole",
-        "text": "You'll be back when that little claim dries up.",
-        "trigger": {
-          "type": "stage",
-          "value": "independent"
         }
       },
       {

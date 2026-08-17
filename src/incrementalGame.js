@@ -4,6 +4,7 @@ import {
   rollScratchPrize,
   scaledPurchaseCost,
   selectWeightedDeposit,
+  selectWeightedDepositFromIds,
   selectWeightedMiningEvent,
   selectWeightedRareFind,
   xpRequiredForLevel,
@@ -97,6 +98,7 @@ export class IncrementalGame {
     this.lastOfflineProgress = offlineProgress;
 
     const levelResult = this.applyLevelProgression();
+    const employmentPromotion = this.evaluateEmploymentProgression();
     this.emit('ready', { source, offlineProgress });
     if (levelResult.levelsGained > 0) this.emit('level-up', levelResult);
     const milestones = this.evaluateMilestones();
@@ -104,6 +106,7 @@ export class IncrementalGame {
       || reconciled
       || offlineProgress?.processed
       || levelResult.levelsGained > 0
+      || employmentPromotion
       || milestones.length > 0) {
       const reason = source !== 'save'
         ? 'new-game'
@@ -112,11 +115,293 @@ export class IncrementalGame {
           : 'progression-migration';
       this.saveCheckpoint(reason);
     }
+    if (employmentPromotion) this.emit('employment-promotion', employmentPromotion);
+    this.emitNextPendingEmploymentScene();
     return { source, state: this.state, offlineProgress };
   }
 
   startNew() {
     return this.start({ forceNew: true });
+  }
+
+  getEmploymentRank(state = this.state) {
+    if (!state?.employment?.rankId) return null;
+    return this.config.employment.ranksById[state.employment.rankId] || null;
+  }
+
+  getEmploymentAssignment(state = this.state) {
+    if (!state?.employment?.assignmentId) return null;
+    return this.config.employment.assignmentsById[state.employment.assignmentId] || null;
+  }
+
+  getCompanyIssuedTool(state = this.state) {
+    const rank = this.getEmploymentRank(state);
+    return rank ? this.config.equipment.itemsById[rank.companyToolId] || null : null;
+  }
+
+  getEmploymentCoworkers() {
+    if (!this.state?.employment?.active) return [];
+    return clone(this.getEmploymentAssignment()?.coworkers || []);
+  }
+
+  getEmploymentProgress() {
+    if (!this.state) return null;
+    const rank = this.getEmploymentRank();
+    const assignment = this.getEmploymentAssignment();
+    const rankIndex = rank ? this.config.employment.ranks.findIndex((entry) => entry.id === rank.id) : -1;
+    const nextRank = rankIndex >= 0 ? this.config.employment.ranks[rankIndex + 1] || null : null;
+    const requirements = nextRank?.promotionRequirements || null;
+    return {
+      active: this.state.employment.active,
+      rank: rank ? clone(rank) : null,
+      assignment: assignment ? clone(assignment) : null,
+      companyTool: this.getCompanyIssuedTool() ? clone(this.getCompanyIssuedTool()) : null,
+      nextRank: nextRank ? clone(nextRank) : null,
+      contractDiscovered: this.state.employment.contractDiscovered,
+      requirements: requirements ? {
+        level: {
+          current: this.state.character.level,
+          required: requirements.requiredLevel,
+          met: this.state.character.level >= requirements.requiredLevel,
+        },
+        deposits: {
+          current: this.state.employment.depositsBroken,
+          required: requirements.requiredEmployeeDeposits,
+          met: this.state.employment.depositsBroken >= requirements.requiredEmployeeDeposits,
+        },
+        companyValue: {
+          current: this.state.employment.companyValue,
+          required: requirements.requiredCompanyValue,
+          met: this.state.employment.companyValue >= requirements.requiredCompanyValue,
+        },
+      } : null,
+    };
+  }
+
+  queueEmploymentScene(sceneId) {
+    const id = normalizedId(sceneId);
+    if (!this.config.employment.scenesById[id]
+      || this.state.employment.completedScenes.includes(id)
+      || this.state.employment.pendingScenes.includes(id)) return false;
+    this.state.employment.pendingScenes.push(id);
+    return true;
+  }
+
+  emitEmploymentScene(sceneId, replay = false) {
+    const scene = this.config.employment.scenesById[normalizedId(sceneId)];
+    if (!scene) return null;
+    return this.emit('story-scene', {
+      scene: clone(scene),
+      replay: Boolean(replay),
+      choiceId: replay ? null : this.state.employment.storyChoices[scene.id] || null,
+    });
+  }
+
+  emitNextPendingEmploymentScene() {
+    const sceneId = this.state?.employment?.pendingScenes?.[0];
+    return sceneId ? this.emitEmploymentScene(sceneId, false) : null;
+  }
+
+  addEmploymentHistoryEntries(entries, completedAt = this.clock()) {
+    const existing = new Set(this.state.employment.history.map((entry) => entry.id));
+    entries.forEach((entry) => {
+      if (existing.has(entry.id)) return;
+      this.state.employment.history.push({
+        id: entry.id,
+        title: entry.title,
+        completedAt,
+      });
+      existing.add(entry.id);
+    });
+  }
+
+  recordEmploymentStoryChoice(sceneId, choiceId) {
+    if (!this.state) throw new Error('IncrementalGame must be started before recording a story choice.');
+    const scene = this.config.employment.scenesById[normalizedId(sceneId)];
+    const id = normalizedId(choiceId);
+    if (!scene) return { ok: false, reason: 'unknown-scene' };
+    if (!this.state.employment.pendingScenes.includes(scene.id)) {
+      return { ok: false, reason: 'scene-not-pending', sceneId: scene.id };
+    }
+    const choice = scene.steps.flatMap((step) => step.choices).find((entry) => entry.id === id);
+    if (!choice) return { ok: false, reason: 'unknown-choice', sceneId: scene.id, choiceId: id };
+    const previousChoiceId = this.state.employment.storyChoices[scene.id];
+    if (previousChoiceId) {
+      return {
+        ok: previousChoiceId === id,
+        reason: previousChoiceId === id ? 'already-selected' : 'choice-locked',
+        sceneId: scene.id,
+        choiceId: previousChoiceId,
+      };
+    }
+    this.state.employment.storyChoices[scene.id] = id;
+    this.saveCheckpoint('employment-story-choice');
+    return { ok: true, sceneId: scene.id, choiceId: id, choice: clone(choice) };
+  }
+
+  replayEmploymentScene(sceneId) {
+    if (!this.state) throw new Error('IncrementalGame must be started before replaying a story scene.');
+    const id = normalizedId(sceneId);
+    if (!this.config.employment.scenesById[id]) return { ok: false, reason: 'unknown-scene', sceneId: id };
+    if (!this.state.employment.completedScenes.includes(id)) {
+      return { ok: false, reason: 'scene-not-completed', sceneId: id };
+    }
+    this.emitEmploymentScene(id, true);
+    return { ok: true, sceneId: id, replay: true };
+  }
+
+  completeEmploymentScene(sceneId) {
+    if (!this.state) throw new Error('IncrementalGame must be started before completing a story scene.');
+    const id = normalizedId(sceneId);
+    const scene = this.config.employment.scenesById[id];
+    if (!scene) return { ok: false, reason: 'unknown-scene', sceneId: id };
+    const pendingIndex = this.state.employment.pendingScenes.indexOf(id);
+    if (pendingIndex < 0) {
+      return this.state.employment.completedScenes.includes(id)
+        ? { ok: true, reason: 'already-completed', sceneId: id, replay: true }
+        : { ok: false, reason: 'scene-not-pending', sceneId: id };
+    }
+    if (scene.completionAction === 'complete-walkout'
+      && this.state.employment.buyoutTransaction?.status !== 'walkout-pending') {
+      return { ok: false, reason: 'buyout-not-reserved', sceneId: id };
+    }
+    if (scene.steps.some((step) => step.choices.length > 0)
+      && !this.state.employment.storyChoices[id]) {
+      return { ok: false, reason: 'choice-required', sceneId: id };
+    }
+
+    this.state.employment.pendingScenes.splice(pendingIndex, 1);
+    if (!this.state.employment.completedScenes.includes(id)) {
+      this.state.employment.completedScenes.push(id);
+    }
+    this.addEmploymentHistoryEntries(scene.historyEntries);
+
+    let transitioned = false;
+    if (scene.completionAction === 'discover-contract') {
+      this.state.employment.contractDiscovered = true;
+    } else if (scene.completionAction === 'complete-walkout') {
+      const now = this.clock();
+      this.state.employment.active = false;
+      this.state.employment.endedAt = now;
+      this.state.employment.buyoutTransaction.status = 'completed';
+      this.state.employment.buyoutTransaction.completedAt = now;
+      this.state.storyStage = 'independent';
+      this.state.currentMine = this.config.start.mineId;
+      const deposit = this.config.depositsById[this.config.start.depositId];
+      this.state.currentDeposit = { id: deposit.id, hp: deposit.maxHp, maxHp: deposit.maxHp };
+      this.state.activeMiningEvent = null;
+      this.queueEmploymentScene(this.config.employment.freedomSceneId);
+      transitioned = true;
+    }
+
+    const milestones = this.evaluateMilestones();
+    const result = {
+      ok: true,
+      sceneId: id,
+      completionAction: scene.completionAction,
+      contractDiscovered: this.state.employment.contractDiscovered,
+      transitioned,
+      storyStage: this.state.storyStage,
+      milestones,
+    };
+    this.saveCheckpoint(scene.completionAction === 'complete-walkout'
+      ? 'walkout-complete'
+      : 'employment-scene-complete');
+    this.emit('story-scene-complete', result);
+    this.emitNextPendingEmploymentScene();
+    return result;
+  }
+
+  evaluateEmploymentProgression() {
+    if (!this.state?.employment?.active || this.state.storyStage !== 'employee') return null;
+    if (this.state.employment.pendingScenes.length > 0) return null;
+    const currentRank = this.getEmploymentRank();
+    const currentIndex = this.config.employment.ranks.findIndex((rank) => rank.id === currentRank?.id);
+    const nextRank = currentIndex >= 0 ? this.config.employment.ranks[currentIndex + 1] : null;
+    if (!nextRank) return null;
+    const requirements = nextRank.promotionRequirements;
+    if (this.state.character.level < requirements.requiredLevel
+      || this.state.employment.depositsBroken < requirements.requiredEmployeeDeposits
+      || this.state.employment.companyValue < requirements.requiredCompanyValue) return null;
+
+    this.state.employment.rankId = nextRank.id;
+    this.state.employment.assignmentId = nextRank.assignmentId;
+    if (!this.state.employment.completedPromotions.includes(nextRank.id)) {
+      this.state.employment.completedPromotions.push(nextRank.id);
+    }
+    this.queueEmploymentScene(nextRank.promotionSceneId);
+    return {
+      rankId: nextRank.id,
+      rank: clone(nextRank),
+      assignment: clone(this.config.employment.assignmentsById[nextRank.assignmentId]),
+      sceneId: nextRank.promotionSceneId,
+    };
+  }
+
+  evaluateEmploymentNotice() {
+    if (!this.state?.employment?.active) return null;
+    const notice = this.config.employment.notices.find((entry) => (
+      entry.rankId === this.state.employment.rankId
+      && this.state.employment.depositsBroken >= entry.requiredEmployeeDeposits
+      && !this.state.employment.completedNotices.includes(entry.id)
+    ));
+    if (!notice) return null;
+    this.state.employment.completedNotices.push(notice.id);
+    return clone(notice);
+  }
+
+  reconcileEmploymentChapter(state) {
+    const employment = state.employment;
+    if (!employment.legacyChapter) return false;
+    const chapter = this.config.employment;
+    const completedAt = Number.isFinite(employment.endedAt)
+      ? employment.endedAt
+      : Number.isFinite(state.lastPlayed)
+        ? state.lastPlayed
+        : 0;
+    let rank = chapter.ranks[0];
+    if (employment.active) {
+      chapter.ranks.forEach((candidate) => {
+        const requirements = candidate.promotionRequirements;
+        if (state.character.level >= requirements.requiredLevel
+          && employment.depositsBroken >= requirements.requiredEmployeeDeposits
+          && employment.companyValue >= requirements.requiredCompanyValue) {
+          rank = candidate;
+        }
+      });
+    } else {
+      rank = chapter.ranks.at(-1);
+    }
+    const rankIndex = chapter.ranks.findIndex((entry) => entry.id === rank.id);
+    const discoveryIndex = chapter.ranks.findIndex((entry) => entry.id === chapter.contractDiscoveryRankId);
+    const completedSceneIds = [chapter.introSceneId];
+    chapter.ranks.slice(1, rankIndex + 1).forEach((entry) => {
+      if (entry.promotionSceneId) completedSceneIds.push(entry.promotionSceneId);
+    });
+    if (!employment.active) {
+      completedSceneIds.push(chapter.walkoutSceneId, chapter.freedomSceneId);
+    }
+    employment.rankId = rank.id;
+    employment.assignmentId = rank.assignmentId;
+    employment.completedPromotions = chapter.ranks.slice(0, rankIndex + 1).map((entry) => entry.id);
+    employment.contractDiscovered = !employment.active || rankIndex >= discoveryIndex;
+    employment.storyChoices = {};
+    employment.completedScenes = [...new Set(completedSceneIds)];
+    employment.pendingScenes = [];
+    employment.completedNotices = chapter.notices
+      .filter((notice) => chapter.ranks.findIndex((entry) => entry.id === notice.rankId) <= rankIndex)
+      .map((notice) => notice.id);
+    employment.history = [];
+    employment.completedScenes.forEach((sceneId) => {
+      const scene = chapter.scenesById[sceneId];
+      scene?.historyEntries.forEach((entry) => {
+        if (!employment.history.some((historyEntry) => historyEntry.id === entry.id)) {
+          employment.history.push({ ...entry, completedAt });
+        }
+      });
+    });
+    employment.legacyChapter = false;
+    return true;
   }
 
   reconcileState(snapshot) {
@@ -209,13 +494,18 @@ export class IncrementalGame {
       state.unlockedMines.unshift(this.config.start.mineId);
       changed = true;
     }
+    if (this.reconcileEmploymentChapter(state)) changed = true;
     const currentMine = this.config.minesById[state.currentMine];
     const currentDeposit = this.config.depositsById[state.currentDeposit.id];
+    const allowedDepositIds = state.employment.active
+      ? this.config.employment.assignmentsById[state.employment.assignmentId]?.depositIds || []
+      : currentMine.depositIds;
     if (!currentDeposit
-      || !currentMine.depositIds.includes(currentDeposit.id)
+      || !allowedDepositIds.includes(currentDeposit.id)
       || state.currentDeposit.maxHp !== currentDeposit.maxHp
       || state.currentDeposit.hp > currentDeposit.maxHp) {
-      const replacement = this.config.depositsById[currentMine.depositIds[0]];
+      const replacementId = allowedDepositIds[0] || currentMine.depositIds[0];
+      const replacement = this.config.depositsById[replacementId];
       state.currentDeposit = {
         id: replacement.id,
         hp: replacement.maxHp,
@@ -271,6 +561,35 @@ export class IncrementalGame {
     if (Object.keys(snapshot.mineProgress).some((id) => !this.config.minesById[id])) return false;
     if (snapshot.employment.companyId !== this.config.employment.companyId) return false;
     if (snapshot.competition.rivalId !== this.config.competition.rival.id) return false;
+
+    if (!snapshot.employment.legacyChapter) {
+      const rank = this.config.employment.ranksById[snapshot.employment.rankId];
+      const assignment = this.config.employment.assignmentsById[snapshot.employment.assignmentId];
+      const knownSceneIds = new Set(this.config.employment.scenes.map((scene) => scene.id));
+      const knownNoticeIds = new Set(this.config.employment.notices.map((notice) => notice.id));
+      if (!rank || !assignment) return false;
+      if (snapshot.employment.active && rank.assignmentId !== assignment.id) return false;
+      if (snapshot.employment.completedPromotions.some((id) => !this.config.employment.ranksById[id])) return false;
+      if ([...snapshot.employment.completedScenes, ...snapshot.employment.pendingScenes]
+        .some((id) => !knownSceneIds.has(id))) return false;
+      if (snapshot.employment.completedNotices.some((id) => !knownNoticeIds.has(id))) return false;
+      if (!Object.entries(snapshot.employment.storyChoices).every(([sceneId, choiceId]) => {
+        const scene = this.config.employment.scenesById[sceneId];
+        return Boolean(scene?.steps.flatMap((step) => step.choices).some((choice) => choice.id === choiceId));
+      })) return false;
+      if (snapshot.employment.active && snapshot.storyStage !== 'employee') return false;
+      if (snapshot.employment.contractDiscovered) {
+        const currentIndex = this.config.employment.ranks.findIndex((entry) => entry.id === rank.id);
+        const discoveryIndex = this.config.employment.ranks.findIndex(
+          (entry) => entry.id === this.config.employment.contractDiscoveryRankId,
+        );
+        if (currentIndex < discoveryIndex) return false;
+      }
+      if (snapshot.employment.buyoutTransaction?.status === 'walkout-pending'
+        && !snapshot.employment.pendingScenes.includes(this.config.employment.walkoutSceneId)) return false;
+      if (snapshot.employment.buyoutTransaction?.status === 'completed'
+        && !snapshot.employment.completedScenes.includes(this.config.employment.walkoutSceneId)) return false;
+    }
 
     const knownSlots = new Set(this.config.equipment.slots.map((slot) => slot.id));
     const knownItems = new Set(this.config.equipment.items.map((item) => item.id));
@@ -404,8 +723,23 @@ export class IncrementalGame {
     }, 0);
   }
 
+  getItemBonus(item, effectType) {
+    if (!item) return 0;
+    return item.bonuses.reduce(
+      (total, bonus) => total + (bonus.type === effectType ? bonus.amount : 0),
+      0,
+    );
+  }
+
   getMiningBonus(effectType) {
-    return this.getSkillBonus(effectType) + this.getEquipmentBonus(effectType);
+    const skillBonus = this.getSkillBonus(effectType);
+    const equipmentBonus = this.getEquipmentBonus(effectType);
+    if (effectType !== 'manual-power-flat' || !this.state?.employment?.active) {
+      return skillBonus + equipmentBonus;
+    }
+    const personalToolBonus = this.getItemBonus(this.getEquippedItem('tool'), effectType);
+    const companyToolBonus = this.getItemBonus(this.getCompanyIssuedTool(), effectType);
+    return skillBonus + equipmentBonus - personalToolBonus + Math.max(personalToolBonus, companyToolBonus);
   }
 
   isEntryEligibleForMine(entry, mineId = this.state?.currentMine) {
@@ -530,7 +864,16 @@ export class IncrementalGame {
 
   selectNextDeposit(mineId = this.state.currentMine, options = {}) {
     const activeEvent = options.applyMiningEvent === false ? null : this.getActiveMiningEvent();
-    const multipliers = activeEvent?.effects.depositWeightMultipliers || {};
+    const eventMultipliers = activeEvent?.effects.depositWeightMultipliers || {};
+    if (this.state?.employment?.active && options.ignoreEmployment !== true) {
+      const assignment = this.getEmploymentAssignment();
+      const multipliers = Object.fromEntries(assignment.depositIds.map((depositId) => [
+        depositId,
+        (assignment.depositWeightMultipliers[depositId] ?? 1) * (eventMultipliers[depositId] ?? 1),
+      ]));
+      return selectWeightedDepositFromIds(this.config, assignment.depositIds, this.random, multipliers);
+    }
+    const multipliers = eventMultipliers;
     return selectWeightedDeposit(this.config, mineId, this.random, multipliers);
   }
 
@@ -540,6 +883,9 @@ export class IncrementalGame {
     if (!mine || !this.state) return { ok: false, reason: 'unknown-mine', mineId: id };
     if (!this.state.unlockedMines.includes(id)) {
       return { ok: false, reason: 'locked-mine', mineId: id };
+    }
+    if (this.state.employment.active) {
+      return { ok: false, reason: 'employee-assignment-controlled', mineId: id };
     }
     if (this.state.currentMine === id) {
       return { ok: true, reason: 'already-active', mineId: id, depositId: this.state.currentDeposit.id };
@@ -1260,25 +1606,78 @@ export class IncrementalGame {
     return result;
   }
 
+  getContractBuyoutStatus() {
+    if (!this.state) return { ok: false, reason: 'not-started' };
+    const cost = this.config.employment.contractBuyoutCost;
+    const transaction = this.state.employment.buyoutTransaction;
+    if (!this.state.employment.active || this.state.storyStage !== 'employee') {
+      return { ok: false, reason: 'not-employed', cost, cash: this.state.cash, transaction };
+    }
+    if (!this.state.employment.contractDiscovered) {
+      return { ok: false, reason: 'contract-hidden', cost: null, cash: this.state.cash, transaction: null };
+    }
+    if (transaction?.status === 'walkout-pending') {
+      return {
+        ok: true,
+        reason: 'walkout-pending',
+        cost,
+        cash: this.state.cash,
+        affordable: true,
+        transaction: clone(transaction),
+      };
+    }
+    return {
+      ok: true,
+      reason: this.state.cash >= cost ? null : 'insufficient-cash',
+      cost,
+      cash: this.state.cash,
+      affordable: this.state.cash >= cost,
+      remaining: Math.max(0, cost - this.state.cash),
+      transaction: null,
+    };
+  }
+
   buyOutContract() {
     if (!this.state) throw new Error('IncrementalGame must be started before buying out the contract.');
-    if (this.state.storyStage !== 'employee' || !this.state.employment.active) {
-      return { ok: false, reason: 'not-employed' };
+    const status = this.getContractBuyoutStatus();
+    if (!status.ok) return status.reason === 'contract-hidden'
+      ? { ok: false, reason: 'contract-hidden' }
+      : { ok: false, reason: 'not-employed' };
+    if (status.reason === 'walkout-pending') {
+      this.emitEmploymentScene(this.config.employment.walkoutSceneId, false);
+      return {
+        ok: true,
+        resumed: true,
+        cost: status.cost,
+        storyStage: this.state.storyStage,
+        transaction: clone(this.state.employment.buyoutTransaction),
+      };
     }
-    const cost = this.config.employment.contractBuyoutCost;
-    if (this.state.cash < cost) {
-      return { ok: false, reason: 'insufficient-cash', cost, cash: this.state.cash };
+    if (!status.affordable) {
+      return { ok: false, reason: 'insufficient-cash', cost: status.cost, cash: status.cash };
     }
 
-    this.state.cash -= cost;
-    this.state.storyStage = 'independent';
-    this.state.employment.active = false;
-    this.state.employment.contractBuyoutPaid = cost;
-    this.state.employment.endedAt = this.clock();
-    const milestones = this.evaluateMilestones();
-    const result = { ok: true, cost, storyStage: this.state.storyStage, milestones };
-    this.saveCheckpoint('contract-buyout');
-    this.emit('story', { type: 'contract-buyout', ...result });
+    const paidAt = this.clock();
+    this.state.cash = Math.max(0, this.state.cash - status.cost);
+    this.state.employment.contractBuyoutPaid = status.cost;
+    this.state.employment.buyoutTransaction = {
+      id: 'employment-contract-buyout',
+      status: 'walkout-pending',
+      amount: status.cost,
+      paidAt,
+      completedAt: null,
+    };
+    this.queueEmploymentScene(this.config.employment.walkoutSceneId);
+    const result = {
+      ok: true,
+      resumed: false,
+      cost: status.cost,
+      storyStage: this.state.storyStage,
+      transaction: clone(this.state.employment.buyoutTransaction),
+    };
+    this.saveCheckpoint('contract-buyout-reserved');
+    this.emit('story', { type: 'contract-buyout-reserved', ...result });
+    this.emitEmploymentScene(this.config.employment.walkoutSceneId, false);
     return result;
   }
 
@@ -1311,6 +1710,8 @@ export class IncrementalGame {
     if (type === 'stage') return this.state.storyStage === value;
     if (type === 'contract-affordable') {
       return this.state.storyStage === 'employee'
+        && this.state.employment.contractDiscovered
+        && !this.state.employment.buyoutTransaction
         && this.state.cash >= this.config.employment.contractBuyoutCost;
     }
     return false;
@@ -1494,7 +1895,12 @@ export class IncrementalGame {
     const bonusQuantity = !automated && rollChance(hit.miningStats?.oreYieldChance || 0, this.random) ? 1 : 0;
     const quantityBeforeEvent = baseQuantity + bonusQuantity;
     const activeEvent = hit.applyMiningEvent === false ? null : this.getActiveMiningEvent();
-    const mineRewardMultiplier = this.config.minesById[this.state.currentMine]?.rewardMultiplier || 1;
+    const employeeStage = this.state.storyStage === 'employee' && this.state.employment.active;
+    const employmentAssignment = employeeStage ? this.getEmploymentAssignment() : null;
+    const employeeRank = employeeStage ? this.getEmploymentRank() : null;
+    const mineRewardMultiplier = employeeStage
+      ? employmentAssignment?.rewardMultiplier || 1
+      : this.config.minesById[this.state.currentMine]?.rewardMultiplier || 1;
     const skillRewardMultiplier = automated ? 1 : hit.miningStats?.oreYieldMultiplier || 1;
     const eventRewardMultiplier = activeEvent?.effects.rewardMultiplier || 1;
     const rewardMultiplier = safeMultiply(
@@ -1507,7 +1913,6 @@ export class IncrementalGame {
     );
     const eventBonusQuantity = quantity - quantityBeforeEvent;
     const grossValue = safeMultiply(quantity, resource.value);
-    const employeeStage = this.state.storyStage === 'employee' && this.state.employment.active;
     let wage = 0;
 
     if (employeeStage) {
@@ -1516,8 +1921,8 @@ export class IncrementalGame {
         quantity,
       );
       wage = Math.max(
-        this.config.balance.minimumWage,
-        Math.floor(grossValue * this.config.balance.employeeWageShare),
+        employeeRank?.minimumWage ?? this.config.balance.minimumWage,
+        Math.floor(grossValue * (employeeRank?.wageShare ?? this.config.balance.employeeWageShare)),
       );
       this.state.cash = safeAdd(this.state.cash, wage);
       this.state.employment.totalWages = safeAdd(this.state.employment.totalWages, wage);
@@ -1532,7 +1937,10 @@ export class IncrementalGame {
 
     const depositXp = automated
       ? 0
-      : Math.max(0, Math.floor(safeMultiply(deposit.xp, hit.miningStats?.xpMultiplier || 1)));
+      : Math.max(0, Math.floor(safeMultiply(
+          safeMultiply(deposit.xp, hit.miningStats?.xpMultiplier || 1),
+          employmentAssignment?.xpMultiplier || 1,
+        )));
     this.state.character.xp = safeAdd(this.state.character.xp, depositXp);
     this.state.statistics.totalDepositsBroken = safeAdd(this.state.statistics.totalDepositsBroken, 1);
     this.state.statistics.totalOreMined = safeAdd(this.state.statistics.totalOreMined, quantity);
@@ -1545,6 +1953,9 @@ export class IncrementalGame {
         this.state.statistics.totalAutomatedProduction,
         quantity,
       );
+    }
+    if (employeeStage && !automated) {
+      this.state.employment.depositsBroken = safeAdd(this.state.employment.depositsBroken, 1);
     }
     const mineProgress = this.getMineProgress(this.state.currentMine);
     mineProgress.depositsBroken = safeAdd(mineProgress.depositsBroken, 1);
@@ -1561,6 +1972,10 @@ export class IncrementalGame {
         }
       : this.applyLevelProgression();
 
+    const employmentNotice = employeeStage && !automated ? this.evaluateEmploymentNotice() : null;
+    const employmentPromotion = employeeStage && !automated
+      ? this.evaluateEmploymentProgression()
+      : null;
     const eventStarted = hit.triggerMiningEvent === false ? null : this.tryTriggerMiningEvent();
     const nextDeposit = this.selectNextDeposit(this.state.currentMine, {
       applyMiningEvent: hit.applyMiningEvent,
@@ -1601,10 +2016,19 @@ export class IncrementalGame {
       mineId: this.state.currentMine,
       mineProgress: clone(mineProgress),
       nextDepositId: nextDeposit.id,
+      employmentNotice,
+      employmentPromotion,
       milestones,
     };
     if (hit.save !== false) this.saveCheckpoint('deposit-break');
-    if (hit.emit !== false) this.emit(automated ? 'automation' : 'mine', result);
+    if (hit.emit !== false) {
+      this.emit(automated ? 'automation' : 'mine', result);
+      if (employmentNotice) this.emit('employment-notice', employmentNotice);
+      if (employmentPromotion) {
+        this.emit('employment-promotion', employmentPromotion);
+        this.emitEmploymentScene(employmentPromotion.sceneId, false);
+      }
+    }
     return result;
   }
 

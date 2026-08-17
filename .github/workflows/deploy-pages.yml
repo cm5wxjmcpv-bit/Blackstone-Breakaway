@@ -2,7 +2,7 @@ name: Test and deploy game
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/cinematic-story]
   workflow_dispatch:
 
 permissions:
@@ -34,6 +34,7 @@ jobs:
         run: npm run audit
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
     environment:

@@ -214,6 +214,12 @@ body.incremental-game-mode #hud {
 .incremental-story-overlay[hidden],
 .incremental-primary-button[hidden],
 .incremental-contract-progress-wrap[hidden],
+.incremental-career-wrap[hidden],
+.incremental-promotion-wrap[hidden],
+.incremental-blackstone-coworkers[hidden],
+.incremental-story-art[hidden],
+.incremental-story-location[hidden],
+.incremental-story-choices[hidden],
 .incremental-event-banner[hidden] {
   display: none !important;
 }
@@ -765,6 +771,64 @@ body.incremental-game-mode #hud {
 
 .incremental-contract-progress-copy strong {
   color: var(--mine-gold);
+}
+
+.incremental-career-wrap {
+  margin: 9px 0 13px;
+  padding: 0 10px;
+  border: 1px solid #594436;
+  border-radius: 9px;
+  background: rgba(24, 19, 17, 0.48);
+}
+
+.incremental-career-wrap .incremental-ledger-row {
+  padding: 8px 0;
+  font-size: 12px;
+}
+
+.incremental-career-wrap .incremental-ledger-row strong {
+  max-width: 60%;
+  text-align: right;
+}
+
+.incremental-promotion-wrap {
+  padding: 12px 0;
+}
+
+.incremental-promotion-wrap > strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--mine-gold);
+  font-size: 12px;
+}
+
+.incremental-promotion-requirements {
+  display: grid;
+  gap: 6px;
+}
+
+.incremental-promotion-requirement {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border-left: 3px solid #7d5140;
+  background: rgba(104, 62, 43, 0.17);
+  color: #c8b49b;
+  font-size: 11px;
+}
+
+.incremental-promotion-requirement.is-met {
+  border-left-color: #57906d;
+  background: rgba(50, 112, 77, 0.12);
+  color: #a6d3b4;
+}
+
+#incremental-contract-remaining {
+  display: block;
+  margin-top: 7px;
+  color: #e2c28d;
+  text-align: right;
 }
 
 .incremental-primary-button,
@@ -1747,7 +1811,9 @@ body.incremental-game-mode #hud {
 
 .incremental-story-dialog {
   box-sizing: border-box;
-  width: min(470px, 100%);
+  width: min(600px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
   padding: 24px;
   border: 1px solid #95643e;
   border-radius: 13px;
@@ -1768,6 +1834,64 @@ body.incremental-game-mode #hud {
   color: #ddc9ae;
   font-size: 16px;
   line-height: 1.55;
+}
+
+.incremental-story-art {
+  display: grid;
+  place-items: center;
+  min-height: 150px;
+  margin: -8px -8px 17px;
+  border: 1px solid #634b3b;
+  border-radius: 9px;
+  background:
+    linear-gradient(135deg, rgba(220, 147, 74, 0.12), transparent 52%),
+    repeating-linear-gradient(135deg, #211d1b 0 14px, #26211e 14px 28px);
+  color: #9f8b74;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+.incremental-story-location {
+  display: block;
+  margin-bottom: 7px;
+  color: #d8ad72;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.incremental-story-choices {
+  display: grid;
+  gap: 9px;
+  margin: 0 0 18px;
+}
+
+.incremental-story-choices > strong {
+  color: #d8c3a8;
+  font-size: 12px;
+}
+
+.incremental-story-choice {
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #72533e;
+  border-radius: 8px;
+  background: #332720;
+  color: #f5dfc0;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.incremental-story-choice:hover,
+.incremental-story-choice:focus-visible {
+  border-color: #d69451;
+  background: #443126;
+  outline: none;
 }
 
 .incremental-offline-overlay {
@@ -2206,6 +2330,90 @@ body.incremental-game-mode #hud {
   padding: 20px;
 }
 
+.incremental-blackstone-coworkers {
+  margin-top: 18px;
+  padding: 20px;
+  border-color: #706044;
+  background:
+    linear-gradient(135deg, rgba(205, 164, 82, 0.11), transparent 55%),
+    var(--mine-panel);
+}
+
+.incremental-coworker-badge {
+  padding: 8px 10px;
+  border: 1px solid #7a6541;
+  border-radius: 999px;
+  color: #e0be76;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.incremental-blackstone-coworker-grid {
+  margin-top: 15px;
+}
+
+.incremental-blackstone-coworker-card {
+  border-color: #62533e;
+  background: #27221c;
+}
+
+.incremental-miller-dialogue {
+  margin: 14px 0 0;
+  padding: 13px 15px;
+  border-left: 4px solid #b47b45;
+  border-radius: 0 8px 8px 0;
+  background: rgba(64, 43, 31, 0.55);
+  color: #efd5b2;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.45;
+}
+
+.incremental-story-history {
+  margin: 16px 0;
+  padding: 18px;
+}
+
+.incremental-story-history .incremental-panel-heading small {
+  max-width: 380px;
+  color: var(--mine-muted);
+  font-size: 10px;
+  text-align: right;
+}
+
+.incremental-history-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.incremental-history-entry {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 7px 9px;
+  border: 1px solid #4f4035;
+  border-radius: 8px;
+  background: #241d19;
+}
+
+.incremental-history-entry > span {
+  color: #79ba91;
+  font-weight: 900;
+}
+
+.incremental-history-entry .incremental-small-button {
+  min-width: 110px;
+}
+
+.incremental-history-empty {
+  margin: 0;
+  color: var(--mine-muted);
+  font-size: 12px;
+}
+
 .incremental-crew-heading {
   display: flex;
   align-items: start;
@@ -2563,7 +2771,8 @@ body.incremental-game-mode #hud {
 }
 
 @media (max-width: 620px) {
-  .incremental-crew-operations {
+  .incremental-crew-operations,
+  .incremental-blackstone-coworkers {
     padding: 14px;
   }
 
@@ -2576,12 +2785,35 @@ body.incremental-game-mode #hud {
     text-align: left;
   }
 
+  .incremental-coworker-badge {
+    white-space: normal;
+  }
+
   .incremental-crew-grid {
     grid-template-columns: 1fr;
   }
 
   .incremental-crew-card:last-child {
     grid-column: auto;
+  }
+
+  .incremental-story-history .incremental-panel-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .incremental-story-history .incremental-panel-heading small {
+    text-align: left;
+  }
+
+  .incremental-history-entry {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .incremental-history-entry .incremental-small-button {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 44px;
   }
 
   .incremental-skill-branch-heading {

@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "status": "awaiting-user-approval",
+  "finalArtworkIntegrated": false,
+  "direction": {
+    "targetAspectRatio": "16:9",
+    "recommendedSize": "1600x900",
+    "mobileSafeArea": "Keep speakers, faces, paperwork, and story-critical objects inside the centered 60% of the frame.",
+    "tone": "Grounded industrial mining with warm work lights, dark stone, practical equipment, and restrained corporate branding.",
+    "rule": "Approve and integrate one scene at a time. Scene 1 is first."
+  },
+  "foremanColePortraits": [
+    "stern",
+    "neutral",
+    "mildly-impressed",
+    "dismissive",
+    "amused",
+    "surprised",
+    "irritated"
+  ],
+  "scenes": [
+    {
+      "approvalOrder": 1,
+      "sceneId": "first-shift",
+      "artId": "blackstone-shaft-7-new-hire",
+      "title": "Blackstone Shaft 7 — New Hire",
+      "status": "ready-for-visual-approval",
+      "location": "Shaft 7 Entry Heading",
+      "characters": ["player miner", "Foreman Cole", "distant Blackstone workers"],
+      "requiredDetails": [
+        "industrial Blackstone sign or mark",
+        "battered company-issued rusty pickaxe",
+        "stone and coal faces",
+        "timber or steel shaft supports",
+        "work lamps and practical safety equipment"
+      ],
+      "storyBeat": "Cole explains ownership, wages, production expectations, and the realities of being replaceable."
+    },
+    {
+      "approvalOrder": 2,
+      "sceneId": "first-promotion",
+      "artId": "foreman-cole-office",
+      "title": "Foreman Cole's Office",
+      "status": "placeholder-only",
+      "location": "Blackstone administrative office near the mine",
+      "characters": ["player miner", "Foreman Cole"],
+      "requiredDetails": ["production charts", "worn desk", "Blackstone paperwork", "mine visible beyond office glass or doorway"],
+      "storyBeat": "The player receives more responsibility and better ground without a meaningful raise."
+    },
+    {
+      "approvalOrder": 3,
+      "sceneId": "senior-miner",
+      "artId": "senior-miner-underground-heading",
+      "title": "Senior Miner Underground Heading",
+      "status": "placeholder-only",
+      "location": "Blackstone East Vein",
+      "characters": ["player miner", "Foreman Cole"],
+      "requiredDetails": ["copper and iron vein", "steel company pickaxe", "deeper supports", "confined industrial work area"],
+      "storyBeat": "Cole recognizes the player's skill but credits Blackstone's infrastructure for that success."
+    },
+    {
+      "approvalOrder": 4,
+      "sceneId": "shift-lead-contract",
+      "artId": "shift-lead-contract-paperwork",
+      "title": "Shift Lead / Contract Paperwork",
+      "status": "placeholder-only",
+      "location": "Foreman Cole's Office",
+      "characters": ["player miner", "Foreman Cole"],
+      "requiredDetails": ["promotion paperwork", "release clause visually emphasized", "production heading plans", "Blackstone seal"],
+      "storyBeat": "The player discovers the $5,000 contract release clause."
+    },
+    {
+      "approvalOrder": 5,
+      "sceneId": "the-walkout",
+      "artId": "contract-office-walkout",
+      "title": "The Walkout",
+      "status": "placeholder-only",
+      "location": "Blackstone Contract Office",
+      "characters": ["player miner", "Foreman Cole", "contract clerk"],
+      "requiredDetails": ["signed release contract", "payment receipt", "office exit toward daylight", "restrained tension rather than melodrama"],
+      "storyBeat": "The player pays for freedom and tells Cole, ‘At least I'll be going broke for myself.’"
+    },
+    {
+      "approvalOrder": 6,
+      "sceneId": "freedom-claim-arrival",
+      "artId": "freedom-claim-arrival",
+      "title": "Freedom Claim Arrival",
+      "status": "placeholder-only",
+      "location": "Freedom Claim",
+      "characters": ["player miner alone"],
+      "requiredDetails": ["small rough claim", "minimal infrastructure", "personal tool", "open sky or daylight", "no Blackstone branding"],
+      "storyBeat": "The operation is smaller and rougher, but every recovered resource belongs to the player."
+    }
+  ]
+}

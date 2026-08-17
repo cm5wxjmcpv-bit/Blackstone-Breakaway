@@ -59,9 +59,121 @@ function rawConfig() {
     employment: {
       companyId: 'blackstone',
       companyName: 'Blackstone Mining Co.',
-      role: 'Mine Worker',
       foremanName: 'Foreman Test',
       contractBuyoutCost: 50,
+      startingRankId: 'new-hire',
+      contractDiscoveryRankId: 'shift-lead',
+      introSceneId: 'chapter-first-shift',
+      walkoutSceneId: 'chapter-walkout',
+      freedomSceneId: 'chapter-freedom',
+      assignments: [
+        {
+          id: 'test-heading',
+          name: 'Test Heading',
+          depositIds: ['stone-face'],
+          rewardMultiplier: 1,
+          xpMultiplier: 1,
+        },
+      ],
+      ranks: [
+        {
+          id: 'new-hire',
+          name: 'New Hire',
+          assignmentId: 'test-heading',
+          companyToolId: 'starter-pickaxe',
+          wageShare: 0.1,
+          minimumWage: 1,
+          promotionRequirements: {
+            requiredLevel: 1,
+            requiredEmployeeDeposits: 0,
+            requiredCompanyValue: 0,
+          },
+        },
+        {
+          id: 'mine-worker',
+          name: 'Mine Worker',
+          assignmentId: 'test-heading',
+          companyToolId: 'iron-pickaxe',
+          wageShare: 0.1,
+          minimumWage: 1,
+          promotionSceneId: 'chapter-mine-worker',
+          promotionRequirements: {
+            requiredLevel: 1,
+            requiredEmployeeDeposits: 2,
+            requiredCompanyValue: 20,
+          },
+        },
+        {
+          id: 'senior-miner',
+          name: 'Senior Miner',
+          assignmentId: 'test-heading',
+          companyToolId: 'iron-pickaxe',
+          wageShare: 0.1,
+          minimumWage: 1,
+          promotionSceneId: 'chapter-senior-miner',
+          promotionRequirements: {
+            requiredLevel: 1,
+            requiredEmployeeDeposits: 4,
+            requiredCompanyValue: 70,
+          },
+        },
+        {
+          id: 'shift-lead',
+          name: 'Shift Lead',
+          assignmentId: 'test-heading',
+          companyToolId: 'steel-pickaxe',
+          wageShare: 0.1,
+          minimumWage: 1,
+          promotionSceneId: 'chapter-shift-lead',
+          promotionRequirements: {
+            requiredLevel: 1,
+            requiredEmployeeDeposits: 6,
+            requiredCompanyValue: 100,
+          },
+        },
+      ],
+      scenes: [
+        {
+          id: 'chapter-first-shift',
+          title: 'First Shift',
+          steps: [{ speaker: 'Foreman Test', text: 'Start the shift.' }],
+          historyEntries: [{ id: 'first-shift-history', title: 'First Shift' }],
+        },
+        {
+          id: 'chapter-mine-worker',
+          title: 'Mine Worker',
+          steps: [{ speaker: 'Foreman Test', text: 'Promoted to Mine Worker.' }],
+          historyEntries: [{ id: 'mine-worker-history', title: 'Promoted to Mine Worker' }],
+        },
+        {
+          id: 'chapter-senior-miner',
+          title: 'Senior Miner',
+          steps: [{ speaker: 'Foreman Test', text: 'Promoted to Senior Miner.' }],
+          historyEntries: [{ id: 'senior-miner-history', title: 'Promoted to Senior Miner' }],
+        },
+        {
+          id: 'chapter-shift-lead',
+          title: 'Shift Lead',
+          completionAction: 'discover-contract',
+          steps: [{ speaker: 'Foreman Test', text: 'The contract has a release clause.' }],
+          historyEntries: [{ id: 'shift-lead-history', title: 'Promoted to Shift Lead' }],
+        },
+        {
+          id: 'chapter-walkout',
+          title: 'The Walkout',
+          completionAction: 'complete-walkout',
+          steps: [{ speaker: 'Player', text: 'I am leaving.' }],
+          historyEntries: [{ id: 'walkout-history', title: 'The Walkout' }],
+        },
+        {
+          id: 'chapter-freedom',
+          title: 'Freedom Claim',
+          steps: [{ speaker: 'Player', text: 'This claim is mine.' }],
+          historyEntries: [{ id: 'freedom-history', title: 'Freedom Claim' }],
+        },
+      ],
+      notices: [],
+      storeDialogue: {},
     },
     independence: {
       role: 'Independent Miner',
@@ -824,26 +936,36 @@ test('skill resets quote a configured cost, prevent overspending, and refund all
 test('employee wages can fund the contract buyout and subsequent resources belong to the player', () => {
   const { game } = createGame(config(), { clock: () => 777 });
   game.start();
-  assert.deepEqual(game.buyOutContract(), {
-    ok: false, reason: 'insufficient-cash', cost: 50, cash: 0,
-  });
+  assert.deepEqual(game.buyOutContract(), { ok: false, reason: 'contract-hidden' });
+  assert.equal(game.completeEmploymentScene('chapter-first-shift').ok, true);
 
   let swings = 0;
   while (game.state.cash < 50 && swings < 100) {
     game.mine();
+    const pendingScene = game.state.employment.pendingScenes[0];
+    if (pendingScene) game.completeEmploymentScene(pendingScene);
     swings += 1;
   }
   assert.equal(game.state.cash, 50);
+  assert.equal(game.state.employment.rankId, 'shift-lead');
+  assert.equal(game.state.employment.contractDiscovered, true);
   assert.ok(game.state.milestones.includes('contract-ready'));
   const companyStoneBefore = game.state.employment.companyResources.stone;
   const bought = game.buyOutContract();
   assert.equal(bought.ok, true);
   assert.equal(game.state.cash, 0);
+  assert.equal(game.state.storyStage, 'employee');
+  assert.equal(game.state.employment.active, true);
+  assert.equal(game.state.employment.contractBuyoutPaid, 50);
+  assert.equal(game.state.employment.buyoutTransaction.status, 'walkout-pending');
+  assert.equal(game.buyOutContract().resumed, true);
+  assert.equal(game.state.cash, 0);
+  assert.equal(game.completeEmploymentScene('chapter-walkout').ok, true);
   assert.equal(game.state.storyStage, 'independent');
   assert.equal(game.state.employment.active, false);
-  assert.equal(game.state.employment.contractBuyoutPaid, 50);
   assert.equal(game.state.employment.endedAt, 777);
-  assert.ok(game.state.milestones.includes('contract-bought'));
+  assert.equal(game.state.employment.buyoutTransaction.status, 'completed');
+  assert.equal(game.completeEmploymentScene('chapter-freedom').ok, true);
   assert.deepEqual(game.buyOutContract(), { ok: false, reason: 'not-employed' });
 
   game.mine();
@@ -1035,6 +1157,7 @@ test('data-driven milestone triggers unlock once at start, level, contract, and 
   assert.deepEqual(seen, ['first-shift']);
 
   game.state.cash = 50;
+  game.state.employment.contractDiscovered = true;
   assert.deepEqual(game.evaluateMilestones().map((entry) => entry.id), ['contract-ready']);
   assert.deepEqual(game.evaluateMilestones(), []);
   game.state.character.level = 2;

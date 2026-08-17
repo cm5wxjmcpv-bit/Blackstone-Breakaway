@@ -1,7 +1,7 @@
 import { getActiveGameId } from './gameManifest.js';
 import { getSaveStorageKey } from './saveNamespace.js';
 
-export const INCREMENTAL_SAVE_VERSION = 8;
+export const INCREMENTAL_SAVE_VERSION = 9;
 const DEFAULT_SLOT = 1;
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 
@@ -73,6 +73,39 @@ function validAutomationDepositMap(value) {
     && nonnegativeFinite(deposit.hp)
     && deposit.hp <= deposit.maxHp
   ));
+}
+
+function validStoryChoiceMap(value) {
+  if (!plainObject(value)) return false;
+  return Object.entries(value).every(([sceneId, choiceId]) => validId(sceneId) && validId(choiceId));
+}
+
+function validEmploymentHistory(value) {
+  if (!Array.isArray(value)) return false;
+  const ids = new Set();
+  return value.every((entry) => {
+    if (!plainObject(entry)
+      || !validId(entry.id)
+      || typeof entry.title !== 'string'
+      || !entry.title.trim()
+      || entry.title.length > 120
+      || !nonnegativeFinite(entry.completedAt)
+      || ids.has(entry.id)) return false;
+    ids.add(entry.id);
+    return true;
+  });
+}
+
+function validBuyoutTransaction(value) {
+  if (value === null) return true;
+  if (!plainObject(value)
+    || !Object.keys(value).every((field) => ['id', 'status', 'amount', 'paidAt', 'completedAt'].includes(field))
+    || !validId(value.id)
+    || !['walkout-pending', 'completed'].includes(value.status)
+    || !nonnegativeFinite(value.amount)
+    || !nonnegativeFinite(value.paidAt)) return false;
+  if (value.status === 'walkout-pending') return value.completedAt === null;
+  return nonnegativeFinite(value.completedAt) && value.completedAt >= value.paidAt;
 }
 
 function resourceMap(config, initial = 0) {
@@ -171,11 +204,25 @@ export function createInitialIncrementalSnapshot(config, options = {}) {
     employment: {
       companyId: config.employment.companyId,
       active: config.start.storyStage === 'employee',
+      rankId: config.employment.startingRankId,
+      completedPromotions: [config.employment.startingRankId],
+      assignmentId: config.employment.ranksById[config.employment.startingRankId].assignmentId,
+      depositsBroken: 0,
+      contractDiscovered: false,
       contractBuyoutPaid: 0,
       endedAt: null,
       companyResources: resourceMap(config),
       companyValue: 0,
       totalWages: 0,
+      storyChoices: {},
+      completedScenes: [],
+      pendingScenes: config.start.storyStage === 'employee'
+        ? [config.employment.introSceneId]
+        : [],
+      completedNotices: [],
+      history: [],
+      buyoutTransaction: null,
+      legacyChapter: false,
     },
     storyStage: config.start.storyStage,
     milestones: [],
@@ -347,6 +394,43 @@ export function migrateIncrementalSnapshot(snapshot) {
     migrated.saveVersion = 8;
   }
 
+  if (migrated.saveVersion === 8) {
+    const employment = plainObject(migrated.employment) ? migrated.employment : {};
+    const inferredDeposits = validId(migrated.currentMine)
+      && plainObject(migrated.mineProgress?.[migrated.currentMine])
+      && nonnegativeInteger(migrated.mineProgress[migrated.currentMine].depositsBroken)
+      ? migrated.mineProgress[migrated.currentMine].depositsBroken
+      : nonnegativeInteger(migrated.statistics?.totalDepositsBroken)
+        ? migrated.statistics.totalDepositsBroken
+        : 0;
+    employment.rankId = null;
+    employment.completedPromotions = [];
+    employment.assignmentId = null;
+    employment.depositsBroken = inferredDeposits;
+    employment.contractDiscovered = employment.active !== true;
+    employment.storyChoices = {};
+    employment.completedScenes = [];
+    employment.pendingScenes = [];
+    employment.completedNotices = [];
+    employment.history = [];
+    if (nonnegativeFinite(employment.contractBuyoutPaid) && employment.contractBuyoutPaid > 0) {
+      employment.endedAt = nonnegativeFinite(employment.endedAt) ? employment.endedAt : 0;
+    }
+    employment.buyoutTransaction = nonnegativeFinite(employment.contractBuyoutPaid)
+      && employment.contractBuyoutPaid > 0
+      ? {
+          id: 'legacy-contract-buyout',
+          status: 'completed',
+          amount: employment.contractBuyoutPaid,
+          paidAt: employment.endedAt,
+          completedAt: employment.endedAt,
+        }
+      : null;
+    employment.legacyChapter = true;
+    migrated.employment = employment;
+    migrated.saveVersion = 9;
+  }
+
   return migrated;
 }
 
@@ -401,10 +485,31 @@ export function validateIncrementalSnapshot(snapshot) {
   const employment = snapshot.employment;
   if (!plainObject(employment) || !validId(employment.companyId)) return false;
   if (typeof employment.active !== 'boolean') return false;
+  if (typeof employment.legacyChapter !== 'boolean') return false;
+  if (!(validId(employment.rankId)
+    || (employment.legacyChapter && employment.rankId === null))) return false;
+  if (!(validId(employment.assignmentId)
+    || (employment.legacyChapter && employment.assignmentId === null))) return false;
+  if (!validIdList(employment.completedPromotions)
+    || !nonnegativeInteger(employment.depositsBroken)
+    || typeof employment.contractDiscovered !== 'boolean') return false;
   if (!nonnegativeFinite(employment.contractBuyoutPaid)) return false;
   if (employment.endedAt !== null && !nonnegativeFinite(employment.endedAt)) return false;
   if (!validNumberMap(employment.companyResources)) return false;
   if (!nonnegativeFinite(employment.companyValue) || !nonnegativeFinite(employment.totalWages)) return false;
+  if (!validStoryChoiceMap(employment.storyChoices)
+    || !validIdList(employment.completedScenes)
+    || !validIdList(employment.pendingScenes)
+    || !validIdList(employment.completedNotices)
+    || !validEmploymentHistory(employment.history)
+    || !validBuyoutTransaction(employment.buyoutTransaction)) return false;
+  if (employment.completedScenes.some((sceneId) => employment.pendingScenes.includes(sceneId))) return false;
+  if (employment.buyoutTransaction
+    && employment.contractBuyoutPaid !== employment.buyoutTransaction.amount) return false;
+  if (employment.buyoutTransaction?.status === 'walkout-pending'
+    && (!employment.active || employment.endedAt !== null)) return false;
+  if (employment.buyoutTransaction?.status === 'completed'
+    && (employment.active || employment.endedAt === null)) return false;
 
   if (!validId(snapshot.storyStage) || !validIdList(snapshot.milestones)) return false;
   if (!plainObject(snapshot.lotteryState)) return false;

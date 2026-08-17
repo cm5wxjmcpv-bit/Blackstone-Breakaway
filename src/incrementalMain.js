@@ -136,18 +136,29 @@ function createRuntimeRoot() {
             </section>
 
             <section class="incremental-panel incremental-ledger-panel">
-              <span id="incremental-contract-kicker" class="incremental-label">FIRST MAJOR GOAL</span>
-              <h2 id="incremental-contract-title">Buy Out Employment Contract</h2>
+              <span id="incremental-contract-kicker" class="incremental-label">BLACKSTONE CAREER</span>
+              <h2 id="incremental-contract-title">Current Assignment</h2>
+              <div id="incremental-career-wrap" class="incremental-career-wrap">
+                <div class="incremental-ledger-row"><span>Current rank</span><strong id="incremental-career-rank">New Hire</strong></div>
+                <div class="incremental-ledger-row"><span>Assignment</span><strong id="incremental-career-assignment">Shaft 7</strong></div>
+                <div class="incremental-ledger-row"><span>Company-issued tool</span><strong id="incremental-career-tool">Rusty Pickaxe</strong></div>
+                <div class="incremental-ledger-row"><span>Wage share</span><strong id="incremental-career-wage-rate">8%</strong></div>
+                <div id="incremental-promotion-wrap" class="incremental-promotion-wrap">
+                  <strong id="incremental-promotion-title">Promotion Progress</strong>
+                  <div id="incremental-promotion-requirements" class="incremental-promotion-requirements"></div>
+                </div>
+              </div>
               <div class="incremental-ledger-row"><span>Your total wages</span><strong id="incremental-wages">$0</strong></div>
               <div class="incremental-ledger-row"><span>Value Blackstone kept</span><strong id="incremental-company-value">$0</strong></div>
-              <div id="incremental-contract-progress-wrap" class="incremental-contract-progress-wrap">
+              <div id="incremental-contract-progress-wrap" class="incremental-contract-progress-wrap" hidden>
                 <div class="incremental-contract-progress-copy"><span id="incremental-contract-progress-label">$0 / $0</span><strong id="incremental-contract-percent">0%</strong></div>
                 <div class="incremental-progress" role="progressbar" aria-label="Employment contract buyout" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                   <span id="incremental-contract-bar"></span>
                 </div>
+                <small id="incremental-contract-remaining"></small>
               </div>
-              <button id="incremental-buyout" class="incremental-primary-button" type="button">Buy Out Contract</button>
-              <p id="incremental-contract-copy">Blackstone owns every resource you recover and pays only a fraction of its value.</p>
+              <button id="incremental-buyout" class="incremental-primary-button" type="button" hidden>Buy Out Contract</button>
+              <p id="incremental-contract-copy">Meet the visible promotion requirements to earn a better Blackstone assignment.</p>
             </section>
 
             <section class="incremental-panel incremental-character-panel">
@@ -165,6 +176,18 @@ function createRuntimeRoot() {
             </section>
           </aside>
         </div>
+
+        <section id="incremental-blackstone-coworkers" class="incremental-blackstone-coworkers incremental-panel" hidden>
+          <div class="incremental-crew-heading">
+            <div>
+              <span class="incremental-label">BLACKSTONE PRODUCTION CREW</span>
+              <h2>Your Coworkers Mine Separate Faces</h2>
+              <p>These miners and their ore belong to Blackstone. Their work never damages your deposit or enters your inventory.</p>
+            </div>
+            <strong class="incremental-coworker-badge">SHIFT LEAD WORKSITE</strong>
+          </div>
+          <div id="incremental-blackstone-coworker-grid" class="incremental-crew-grid incremental-blackstone-coworker-grid"></div>
+        </section>
 
         <section id="incremental-crew-operations" class="incremental-crew-operations incremental-panel" hidden>
           <div class="incremental-crew-heading">
@@ -196,6 +219,7 @@ function createRuntimeRoot() {
             <strong id="incremental-store-cash">$0</strong>
           </div>
         </div>
+        <p id="incremental-miller-dialogue" class="incremental-miller-dialogue">“Blackstone still issuing those old picks?” — Miller</p>
         <p id="incremental-store-status" class="incremental-section-status" role="status">Miller keeps the counter open from your first shift onward.</p>
         <div id="incremental-store-categories" class="incremental-store-categories"></div>
       </section>
@@ -252,6 +276,14 @@ function createRuntimeRoot() {
           </div>
         </div>
         <p id="incremental-company-status" class="incremental-section-status" role="status">Build your own operation after leaving Blackstone.</p>
+
+        <section class="incremental-story-history incremental-panel">
+          <div class="incremental-panel-heading">
+            <div><span class="incremental-label">STORY / COMPANY HISTORY</span><h2>Blackstone Chapter</h2></div>
+            <small id="incremental-history-summary">Your first shift will be recorded here.</small>
+          </div>
+          <div id="incremental-history-list" class="incremental-history-list"></div>
+        </section>
 
         <section id="incremental-company-setup" class="incremental-company-setup incremental-panel">
           <div>
@@ -346,9 +378,14 @@ function createRuntimeRoot() {
 
     <div id="incremental-story-overlay" class="incremental-story-overlay" hidden>
       <section class="incremental-story-dialog" role="dialog" aria-modal="true" aria-labelledby="incremental-story-title">
+        <div id="incremental-story-art" class="incremental-story-art" aria-hidden="true">
+          <span>SCENE ART PLACEHOLDER</span>
+        </div>
+        <span id="incremental-story-location" class="incremental-story-location"></span>
         <span id="incremental-story-speaker" class="incremental-label"></span>
         <h2 id="incremental-story-title">Milestone</h2>
         <p id="incremental-story-text"></p>
+        <div id="incremental-story-choices" class="incremental-story-choices" hidden></div>
         <button id="incremental-story-continue" class="incremental-primary-button" type="button">Continue</button>
       </section>
     </div>
@@ -441,12 +478,21 @@ function buildUi(root, database) {
     resource_badge: byId('incremental-resource-badge'),
     wages: byId('incremental-wages'),
     company_value: byId('incremental-company-value'),
+    career_wrap: byId('incremental-career-wrap'),
+    career_rank: byId('incremental-career-rank'),
+    career_assignment: byId('incremental-career-assignment'),
+    career_tool: byId('incremental-career-tool'),
+    career_wage_rate: byId('incremental-career-wage-rate'),
+    promotion_wrap: byId('incremental-promotion-wrap'),
+    promotion_title: byId('incremental-promotion-title'),
+    promotion_requirements: byId('incremental-promotion-requirements'),
     contract_kicker: byId('incremental-contract-kicker'),
     contract_title: byId('incremental-contract-title'),
     contract_progress_wrap: byId('incremental-contract-progress-wrap'),
     contract_progress_label: byId('incremental-contract-progress-label'),
     contract_percent: byId('incremental-contract-percent'),
     contract_bar: byId('incremental-contract-bar'),
+    contract_remaining: byId('incremental-contract-remaining'),
     contract_copy: byId('incremental-contract-copy'),
     buyout: byId('incremental-buyout'),
     manual_power: byId('incremental-manual-power'),
@@ -460,6 +506,8 @@ function buildUi(root, database) {
     crew_xp: byId('incremental-crew-xp'),
     crew_status: byId('incremental-crew-status'),
     crew_grid: byId('incremental-crew-grid'),
+    blackstone_coworkers: byId('incremental-blackstone-coworkers'),
+    blackstone_coworker_grid: byId('incremental-blackstone-coworker-grid'),
     open_skills: byId('incremental-open-skills'),
     open_mines: byId('incremental-open-mines'),
     open_company: byId('incremental-open-company'),
@@ -479,6 +527,7 @@ function buildUi(root, database) {
     store_name: byId('incremental-store-name'),
     store_description: byId('incremental-store-description'),
     store_cash: byId('incremental-store-cash'),
+    miller_dialogue: byId('incremental-miller-dialogue'),
     store_status: byId('incremental-store-status'),
     store_categories: byId('incremental-store-categories'),
     equipment_power: byId('incremental-equipment-power'),
@@ -526,10 +575,15 @@ function buildUi(root, database) {
     acquire_company: byId('incremental-acquire-company'),
     generator_grid: byId('incremental-generator-grid'),
     business_upgrade_grid: byId('incremental-business-upgrade-grid'),
+    history_summary: byId('incremental-history-summary'),
+    history_list: byId('incremental-history-list'),
     story_overlay: byId('incremental-story-overlay'),
+    story_art: byId('incremental-story-art'),
+    story_location: byId('incremental-story-location'),
     story_speaker: byId('incremental-story-speaker'),
     story_title: byId('incremental-story-title'),
     story_text: byId('incremental-story-text'),
+    story_choices: byId('incremental-story-choices'),
     story_continue: byId('incremental-story-continue'),
     offline_overlay: byId('incremental-offline-overlay'),
     offline_time_away: byId('incremental-offline-time-away'),
@@ -547,6 +601,7 @@ function buildUi(root, database) {
   const resourceRows = new Map();
   const crewCards = new Map();
   const automationSummaries = new Map();
+  let blackstoneCoworkerSignature = '';
   let lastAutomationFeedbackAt = 0;
   let modalScrollPosition = null;
   let modalReturnFocus = null;
@@ -636,7 +691,10 @@ function buildUi(root, database) {
     nodes.resource_badge.textContent = employeeStage ? 'Employer owned' : 'Player owned';
     nodes.resource_badge.classList.toggle('is-player-owned', !employeeStage);
     const currentMine = config.minesById[state.currentMine];
-    const currentResourceIds = new Set(currentMine.depositIds.map((depositId) => (
+    const visibleDepositIds = employeeStage
+      ? config.employment.assignmentsById[state.employment.assignmentId].depositIds
+      : currentMine.depositIds;
+    const currentResourceIds = new Set(visibleDepositIds.map((depositId) => (
       config.depositsById[depositId].resourceId
     )));
     if (resourceRows.size === 0) config.resources.forEach((resource) => {
@@ -693,6 +751,113 @@ function buildUi(root, database) {
       : mine.name;
   }
 
+  function activeLocationName(state) {
+    if (state.employment.active) {
+      return config.employment.assignmentsById[state.employment.assignmentId]?.locationName
+        || config.employment.companyName;
+    }
+    return mineDisplayName(state, config.minesById[state.currentMine]);
+  }
+
+  function makeEmploymentRequirement(label, current, required, met, formatter = formatNumber) {
+    const row = document.createElement('div');
+    row.className = 'incremental-promotion-requirement';
+    row.classList.toggle('is-met', met);
+    const name = document.createElement('span');
+    name.textContent = label;
+    const value = document.createElement('strong');
+    value.textContent = `${formatter(Math.min(current, required))} / ${formatter(required)}`;
+    row.append(name, value);
+    return row;
+  }
+
+  function renderEmploymentPanel(game) {
+    const state = game.state;
+    const employeeStage = state.storyStage === 'employee' && state.employment.active;
+    const contractCost = config.employment.contractBuyoutCost;
+    nodes.wages.textContent = formatCurrency(state.employment.totalWages);
+    nodes.company_value.textContent = formatCurrency(state.employment.companyValue);
+
+    if (!employeeStage) {
+      nodes.career_wrap.hidden = true;
+      nodes.promotion_wrap.hidden = true;
+      nodes.contract_progress_wrap.hidden = true;
+      nodes.buyout.hidden = true;
+      nodes.contract_kicker.textContent = 'CONTRACT PAID';
+      nodes.contract_title.textContent = 'You Work for Yourself Now';
+      nodes.contract_copy.textContent = `You paid ${formatCurrency(state.employment.contractBuyoutPaid)} for your freedom. New ore enters your stockpile and can be sold directly at the listed value.`;
+      return;
+    }
+
+    const progress = game.getEmploymentProgress();
+    const status = game.getContractBuyoutStatus();
+    const transactionPending = status.reason === 'walkout-pending';
+    nodes.career_wrap.hidden = false;
+    nodes.career_rank.textContent = progress.rank.name;
+    nodes.career_assignment.textContent = progress.assignment.name;
+    nodes.career_tool.textContent = progress.companyTool.name;
+    nodes.career_wage_rate.textContent = percent(progress.rank.wageShare);
+
+    if (!progress.contractDiscovered) {
+      nodes.contract_kicker.textContent = 'BLACKSTONE CAREER';
+      nodes.contract_title.textContent = 'Current Blackstone Assignment';
+      nodes.contract_progress_wrap.hidden = true;
+      nodes.buyout.hidden = true;
+      nodes.promotion_wrap.hidden = !progress.nextRank;
+      nodes.promotion_requirements.replaceChildren();
+      if (progress.nextRank) {
+        nodes.promotion_title.textContent = `Promotion Progress — ${progress.nextRank.name}`;
+        nodes.promotion_requirements.append(
+          makeEmploymentRequirement(
+            'Character level',
+            progress.requirements.level.current,
+            progress.requirements.level.required,
+            progress.requirements.level.met,
+          ),
+          makeEmploymentRequirement(
+            'Employee deposits',
+            progress.requirements.deposits.current,
+            progress.requirements.deposits.required,
+            progress.requirements.deposits.met,
+          ),
+          makeEmploymentRequirement(
+            'Value produced',
+            progress.requirements.companyValue.current,
+            progress.requirements.companyValue.required,
+            progress.requirements.companyValue.met,
+            formatCurrency,
+          ),
+        );
+        nodes.contract_copy.textContent = progress.assignment.instruction;
+      } else {
+        nodes.contract_copy.textContent = 'Complete the Shift Lead meeting to review your employment paperwork.';
+      }
+      return;
+    }
+
+    const creditedCash = transactionPending ? contractCost : Math.min(state.cash, contractCost);
+    const contractProgress = contractCost <= 0 ? 1 : Math.max(0, Math.min(1, creditedCash / contractCost));
+    nodes.contract_kicker.textContent = 'BUY YOUR FREEDOM';
+    nodes.contract_title.textContent = 'Employment Contract Buyout';
+    nodes.promotion_wrap.hidden = true;
+    nodes.contract_progress_wrap.hidden = false;
+    nodes.contract_progress_label.textContent = `${formatCurrency(creditedCash)} / ${formatCurrency(contractCost)}`;
+    nodes.contract_percent.textContent = `${Math.floor(contractProgress * 100)}%`;
+    nodes.contract_bar.style.width = `${contractProgress * 100}%`;
+    nodes.contract_bar.parentElement.setAttribute('aria-valuenow', String(Math.floor(contractProgress * 100)));
+    nodes.contract_remaining.textContent = transactionPending
+      ? 'Payment received — finish The Walkout.'
+      : `${formatCurrency(Math.max(0, contractCost - state.cash))} remaining`;
+    nodes.buyout.hidden = false;
+    nodes.buyout.disabled = !status.affordable;
+    nodes.buyout.textContent = transactionPending
+      ? 'Continue The Walkout'
+      : `Buy Out Contract · ${formatCurrency(contractCost)}`;
+    nodes.contract_copy.textContent = transactionPending
+      ? 'Your payment is safely recorded. Completing the Walkout scene will end employment; reloading cannot charge you again.'
+      : `Save ${formatCurrency(contractCost)} to invoke the release clause. Blackstone still owns all ore until The Walkout is complete.`;
+  }
+
   function renderMiningEvent(game) {
     const activeEvent = game.getActiveMiningEvent();
     nodes.event_banner.hidden = !activeEvent;
@@ -727,6 +892,51 @@ function buildUi(root, database) {
     rock.appendChild(icon);
     visual.append(actors, rock);
     return { visual, actors, rock, icon };
+  }
+
+  function renderBlackstoneCoworkers(game) {
+    const state = game.state;
+    const employeeStage = state.storyStage === 'employee' && state.employment.active;
+    const assignment = employeeStage ? game.getEmploymentAssignment() : null;
+    const coworkers = assignment?.coworkers || [];
+    nodes.blackstone_coworkers.hidden = coworkers.length < 1;
+    const signature = coworkers.length
+      ? `${assignment.id}:${coworkers.map((coworker) => `${coworker.id}:${coworker.depositId}`).join('|')}`
+      : '';
+    if (signature === blackstoneCoworkerSignature) return;
+    blackstoneCoworkerSignature = signature;
+    nodes.blackstone_coworker_grid.replaceChildren();
+    coworkers.forEach((coworker) => {
+      const deposit = config.depositsById[coworker.depositId];
+      const card = document.createElement('article');
+      card.className = 'incremental-crew-card incremental-blackstone-coworker-card is-operating';
+      const header = document.createElement('div');
+      header.className = 'incremental-crew-card-header';
+      const heading = document.createElement('div');
+      const name = document.createElement('h3');
+      name.textContent = coworker.name;
+      const role = document.createElement('small');
+      role.textContent = coworker.role;
+      heading.append(name, role);
+      const badge = document.createElement('strong');
+      badge.textContent = 'WORKING';
+      header.append(heading, badge);
+      const visualRefs = createCrewVisual({ visualType: 'miner' });
+      visualRefs.visual.style.setProperty('--crew-mine-background', assignment.visual.background);
+      visualRefs.visual.style.setProperty('--crew-mine-accent', assignment.visual.accent);
+      visualRefs.rock.style.setProperty('--crew-deposit-color', deposit.visual.color);
+      visualRefs.rock.style.setProperty('--crew-deposit-accent', deposit.visual.accent);
+      visualRefs.icon.textContent = deposit.visual.icon;
+      const details = document.createElement('div');
+      details.className = 'incremental-crew-card-stats';
+      const depositName = document.createElement('strong');
+      depositName.textContent = deposit.name;
+      const ownership = document.createElement('small');
+      ownership.textContent = 'Blackstone-owned face · visual activity only';
+      details.append(depositName, ownership);
+      card.append(header, visualRefs.visual, details);
+      nodes.blackstone_coworker_grid.appendChild(card);
+    });
   }
 
   function ensureCrewCards() {
@@ -1144,6 +1354,14 @@ function buildUi(root, database) {
 
   function renderStore(game) {
     nodes.store_cash.textContent = formatCurrency(game.state.cash);
+    const dialogueKey = game.state.employment.active
+      ? game.state.employment.contractDiscovered
+        ? 'contract-discovered'
+        : game.state.employment.rankId
+      : 'independent';
+    const millerLine = config.employment.storeDialogue[dialogueKey]
+      || 'A good tool should earn its keep.';
+    nodes.miller_dialogue.textContent = `“${millerLine}” — ${config.store.keeperName}`;
     nodes.store_categories.replaceChildren();
     config.store.categories.forEach((category) => {
       const section = document.createElement('section');
@@ -1437,11 +1655,48 @@ function buildUi(root, database) {
     nodes.acquire_company.disabled = acquired || !status.canAcquire;
   }
 
+  function renderEmploymentHistory(game) {
+    const history = game.state.employment.history;
+    nodes.history_summary.textContent = history.length
+      ? `${formatNumber(history.length)} chapter event${history.length === 1 ? '' : 's'} recorded · completed scenes can be replayed without rewards or charges.`
+      : 'Your first shift will be recorded here.';
+    nodes.history_list.replaceChildren();
+    if (!history.length) {
+      const empty = document.createElement('p');
+      empty.className = 'incremental-history-empty';
+      empty.textContent = 'Complete the First Shift scene to begin your Blackstone history.';
+      nodes.history_list.appendChild(empty);
+      return;
+    }
+    history.forEach((entry) => {
+      const row = document.createElement('div');
+      row.className = 'incremental-history-entry';
+      const marker = document.createElement('span');
+      marker.textContent = '✓';
+      const title = document.createElement('strong');
+      title.textContent = entry.title;
+      const scene = config.employment.scenes.find((candidate) => (
+        candidate.historyEntries.some((historyEntry) => historyEntry.id === entry.id)
+      ));
+      row.append(marker, title);
+      if (scene && game.state.employment.completedScenes.includes(scene.id)) {
+        const replay = document.createElement('button');
+        replay.type = 'button';
+        replay.className = 'incremental-small-button';
+        replay.dataset.replayEmploymentScene = scene.id;
+        replay.textContent = 'Replay Scene';
+        row.appendChild(replay);
+      }
+      nodes.history_list.appendChild(row);
+    });
+  }
+
   function renderCompany(game) {
     const state = game.state;
     const created = state.company.created;
     const creation = config.company.creation;
     const automation = game.getAutomationStats();
+    renderEmploymentHistory(game);
     nodes.company_production.textContent = `${formatNumber(automation.totalPower)}/sec`;
     nodes.company_setup.hidden = created;
     nodes.company_dashboard.hidden = !created;
@@ -1522,8 +1777,11 @@ function buildUi(root, database) {
     const xpNeeded = game.getXpRequired();
     const xpProgress = Math.max(0, Math.min(1, state.character.xp / xpNeeded));
     const hpProgress = Math.max(0, Math.min(1, state.currentDeposit.hp / state.currentDeposit.maxHp));
-    const contractCost = config.employment.contractBuyoutCost;
-    const contractProgress = contractCost <= 0 ? 1 : Math.max(0, Math.min(1, state.cash / contractCost));
+    const stageVisual = employeeStage
+      ? game.getEmploymentAssignment().visual
+      : state.currentMine === config.start.mineId
+        ? config.independence.visual
+        : mine.visual;
 
     nodes.cash.textContent = formatCurrency(state.cash);
     nodes.level.textContent = formatNumber(state.character.level);
@@ -1534,7 +1792,7 @@ function buildUi(root, database) {
     nodes.xp_bar.style.width = `${xpProgress * 100}%`;
     nodes.xp_bar.parentElement.setAttribute('aria-valuemax', String(xpNeeded));
     nodes.xp_bar.parentElement.setAttribute('aria-valuenow', String(Math.min(state.character.xp, xpNeeded)));
-    nodes.mine_name.textContent = mineDisplayName(state, mine);
+    nodes.mine_name.textContent = activeLocationName(state);
     nodes.deposit_name.textContent = deposit.name;
     nodes.deposit_hp.textContent = `${formatNumber(state.currentDeposit.hp)} / ${formatNumber(state.currentDeposit.maxHp)} HP`;
     nodes.deposit_bar.style.width = `${hpProgress * 100}%`;
@@ -1544,10 +1802,8 @@ function buildUi(root, database) {
     nodes.deposit_icon.textContent = deposit.visual.icon;
     nodes.mining_target.style.setProperty('--deposit-color', deposit.visual.color);
     nodes.mining_target.style.setProperty('--deposit-accent', deposit.visual.accent);
-    nodes.mine_stage.style.setProperty('--mine-background', mine.visual.background);
-    nodes.mine_stage.style.setProperty('--mine-accent', mine.visual.accent);
-    nodes.wages.textContent = formatCurrency(state.employment.totalWages);
-    nodes.company_value.textContent = formatCurrency(state.employment.companyValue);
+    nodes.mine_stage.style.setProperty('--mine-background', stageVisual.background);
+    nodes.mine_stage.style.setProperty('--mine-accent', stageVisual.accent);
     nodes.manual_power.textContent = formatNumber(miningStats.manualPower);
     nodes.critical_chance.textContent = percent(miningStats.criticalChance);
     nodes.critical_damage.textContent = `${formatNumber(miningStats.criticalDamage, { decimals: 1 })}x`;
@@ -1556,14 +1812,11 @@ function buildUi(root, database) {
     nodes.automation_power.textContent = `${formatNumber(automation.totalPower)}/sec`;
     nodes.company_production.textContent = `${formatNumber(automation.totalPower)}/sec`;
     nodes.store_cash.textContent = formatCurrency(state.cash);
-    nodes.contract_progress_label.textContent = `${formatCurrency(Math.min(state.cash, contractCost))} / ${formatCurrency(contractCost)}`;
-    nodes.contract_percent.textContent = `${Math.floor(contractProgress * 100)}%`;
-    nodes.contract_bar.style.width = `${contractProgress * 100}%`;
-    nodes.contract_bar.parentElement.setAttribute('aria-valuenow', String(Math.floor(contractProgress * 100)));
-    nodes.buyout.disabled = state.cash < contractCost;
+    renderEmploymentPanel(game);
     renderResources(state, employeeStage);
     renderMiningEvent(game);
     renderCrewOperations(game);
+    renderBlackstoneCoworkers(game);
   }
 
   function renderTick(game) {
@@ -1583,8 +1836,12 @@ function buildUi(root, database) {
     const xpNeeded = game.getXpRequired();
     const xpProgress = Math.max(0, Math.min(1, state.character.xp / xpNeeded));
     const hpProgress = Math.max(0, Math.min(1, state.currentDeposit.hp / state.currentDeposit.maxHp));
-    const contractCost = config.employment.contractBuyoutCost;
-    const contractProgress = contractCost <= 0 ? 1 : Math.max(0, Math.min(1, state.cash / contractCost));
+    const employmentProgress = employeeStage ? game.getEmploymentProgress() : null;
+    const stageVisual = employeeStage
+      ? employmentProgress.assignment.visual
+      : state.currentMine === config.start.mineId
+        ? config.independence.visual
+        : mine.visual;
 
     nodes.cash.textContent = formatCurrency(state.cash);
     nodes.level.textContent = formatNumber(state.character.level);
@@ -1596,9 +1853,9 @@ function buildUi(root, database) {
     nodes.xp_bar.parentElement.setAttribute('aria-valuemax', String(xpNeeded));
     nodes.xp_bar.parentElement.setAttribute('aria-valuenow', String(Math.min(state.character.xp, xpNeeded)));
     nodes.subtitle.textContent = employeeStage ? config.ui.subtitle : config.independence.subtitle;
-    nodes.mine_name.textContent = mineDisplayName(state, mine);
+    nodes.mine_name.textContent = activeLocationName(state);
     nodes.role.textContent = employeeStage
-      ? config.employment.role
+      ? employmentProgress.rank.role
       : companyOwner
         ? config.company.ownerRole
         : config.independence.role;
@@ -1609,7 +1866,9 @@ function buildUi(root, database) {
           ? `${state.company.name} · ${config.competition.rival.name}`
           : state.company.name
         : config.independence.operationName;
-    nodes.instruction.textContent = employeeStage ? config.ui.instruction : config.independence.instruction;
+    nodes.instruction.textContent = employeeStage
+      ? employmentProgress.assignment.instruction
+      : config.independence.instruction;
     nodes.deposit_name.textContent = deposit.name;
     nodes.deposit_hp.textContent = `${formatNumber(state.currentDeposit.hp)} / ${formatNumber(state.currentDeposit.maxHp)} HP`;
     nodes.deposit_bar.style.width = `${hpProgress * 100}%`;
@@ -1619,10 +1878,8 @@ function buildUi(root, database) {
     nodes.deposit_icon.textContent = deposit.visual.icon;
     nodes.mining_target.style.setProperty('--deposit-color', deposit.visual.color);
     nodes.mining_target.style.setProperty('--deposit-accent', deposit.visual.accent);
-    nodes.mine_stage.style.setProperty('--mine-background', mine.visual.background);
-    nodes.mine_stage.style.setProperty('--mine-accent', mine.visual.accent);
-    nodes.wages.textContent = formatCurrency(state.employment.totalWages);
-    nodes.company_value.textContent = formatCurrency(state.employment.companyValue);
+    nodes.mine_stage.style.setProperty('--mine-background', stageVisual.background);
+    nodes.mine_stage.style.setProperty('--mine-accent', stageVisual.accent);
     nodes.manual_power.textContent = formatNumber(miningStats.manualPower);
     nodes.critical_chance.textContent = percent(miningStats.criticalChance);
     nodes.critical_damage.textContent = `${formatNumber(miningStats.criticalDamage, { decimals: 1 })}x`;
@@ -1630,21 +1887,10 @@ function buildUi(root, database) {
     nodes.rare_find_chance.textContent = percent(miningStats.rareFindChance);
     nodes.automation_power.textContent = `${formatNumber(automation.totalPower)}/sec`;
 
-    nodes.contract_progress_label.textContent = `${formatCurrency(Math.min(state.cash, contractCost))} / ${formatCurrency(contractCost)}`;
-    nodes.contract_percent.textContent = `${Math.floor(contractProgress * 100)}%`;
-    nodes.contract_bar.style.width = `${contractProgress * 100}%`;
-    nodes.contract_bar.parentElement.setAttribute('aria-valuenow', String(Math.floor(contractProgress * 100)));
-    nodes.buyout.disabled = state.cash < contractCost;
-    nodes.buyout.hidden = !employeeStage;
-    nodes.contract_progress_wrap.hidden = !employeeStage;
-    nodes.contract_kicker.textContent = employeeStage ? 'FIRST MAJOR GOAL' : 'CONTRACT PAID';
-    nodes.contract_title.textContent = employeeStage ? 'Buy Out Employment Contract' : 'You Work for Yourself Now';
-    nodes.contract_copy.textContent = employeeStage
-      ? `Pay ${formatCurrency(contractCost)} to leave Blackstone. Until then, the company owns every resource you recover.`
-      : `You paid ${formatCurrency(state.employment.contractBuyoutPaid)} for your freedom. New ore enters your stockpile and can be sold directly at the listed value.`;
-
+    renderEmploymentPanel(game);
     renderResources(state, employeeStage);
     renderCrewOperations(game);
+    renderBlackstoneCoworkers(game);
     renderStore(game);
     renderEquipment(game);
     renderMiningEvent(game);
@@ -1728,23 +1974,139 @@ function buildUi(root, database) {
     nodes.last_result.textContent = `Your separate company worksites broke ${formatNumber(result.depositsBroken)} deposit${result.depositsBroken === 1 ? '' : 's'} and recovered ${rewards}.${result.xp > 0 ? ` Training and worker reports added ${formatNumber(result.xp)} XP.` : ''}`;
   }
 
+  function renderActiveStory() {
+    if (!activeStory) return;
+    const isScene = activeStory.kind === 'scene';
+    nodes.story_art.hidden = !isScene;
+    nodes.story_location.hidden = !isScene;
+    nodes.story_choices.replaceChildren();
+    nodes.story_choices.hidden = true;
+    nodes.story_continue.hidden = false;
+    if (!isScene) {
+      nodes.story_speaker.textContent = activeStory.speaker;
+      nodes.story_title.textContent = activeStory.title;
+      nodes.story_text.textContent = activeStory.text;
+      nodes.story_continue.textContent = 'Continue';
+      return;
+    }
+
+    const { scene } = activeStory;
+    const step = scene.steps[activeStory.stepIndex];
+    nodes.story_art.dataset.artId = scene.artId;
+    nodes.story_art.querySelector('span').textContent = `VISUAL PLACEHOLDER · ${scene.artId.replaceAll('-', ' ').toUpperCase()}`;
+    nodes.story_location.textContent = `${activeStory.replay ? 'STORY REPLAY · ' : ''}${scene.location}`;
+    nodes.story_title.textContent = scene.title;
+    if (activeStory.choiceResponse) {
+      nodes.story_speaker.textContent = activeStory.choiceResponse.responseSpeaker;
+      nodes.story_text.textContent = activeStory.choiceResponse.responseText;
+      nodes.story_continue.textContent = 'Continue';
+      return;
+    }
+    nodes.story_speaker.textContent = step.speaker;
+    nodes.story_text.textContent = step.text;
+    if (step.choices.length) {
+      nodes.story_choices.hidden = false;
+      const prompt = document.createElement('strong');
+      prompt.textContent = step.prompt;
+      nodes.story_choices.appendChild(prompt);
+      step.choices.forEach((choice) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'incremental-story-choice';
+        button.dataset.storyChoiceId = choice.id;
+        button.textContent = choice.label;
+        nodes.story_choices.appendChild(button);
+      });
+      nodes.story_continue.hidden = true;
+    } else {
+      nodes.story_continue.textContent = activeStory.stepIndex === scene.steps.length - 1
+        ? activeStory.replay ? 'Close Replay' : 'Complete Scene'
+        : 'Continue';
+    }
+  }
+
   function advanceStory() {
     if (activeStory || storyQueue.length < 1) return;
     activeStory = storyQueue.shift();
-    nodes.story_speaker.textContent = activeStory.speaker;
-    nodes.story_title.textContent = activeStory.title;
-    nodes.story_text.textContent = activeStory.text;
+    renderActiveStory();
     storyPausedForOffline = !nodes.offline_overlay.hidden;
     nodes.story_overlay.hidden = storyPausedForOffline;
     if (!storyPausedForOffline) {
       rememberModalScroll();
-      focusWithoutScrolling(nodes.story_continue);
+      const focusTarget = nodes.story_choices.hidden
+        ? nodes.story_continue
+        : nodes.story_choices.querySelector('button');
+      focusWithoutScrolling(focusTarget);
     }
   }
 
   function showMilestone(milestone) {
-    storyQueue.push(milestone);
+    storyQueue.push({ kind: 'milestone', ...milestone });
     advanceStory();
+  }
+
+  function showStoryScene(detail) {
+    const choiceId = detail.replay ? null : detail.choiceId;
+    const choiceStepIndex = choiceId
+      ? detail.scene.steps.findIndex((step) => step.choices.some((choice) => choice.id === choiceId))
+      : -1;
+    const choiceResponse = choiceStepIndex >= 0
+      ? detail.scene.steps[choiceStepIndex].choices.find((choice) => choice.id === choiceId)
+      : null;
+    storyQueue.push({
+      kind: 'scene',
+      scene: detail.scene,
+      replay: Boolean(detail.replay),
+      stepIndex: choiceStepIndex >= 0 ? choiceStepIndex : 0,
+      choiceResponse,
+    });
+    advanceStory();
+  }
+
+  function chooseStory(choiceId, choice) {
+    if (activeStory?.kind !== 'scene' || !choice) return false;
+    activeStory.choiceResponse = choice;
+    renderActiveStory();
+    focusWithoutScrolling(nodes.story_continue);
+    return true;
+  }
+
+  function closeActiveStory() {
+    const completed = activeStory;
+    activeStory = null;
+    storyPausedForOffline = false;
+    nodes.story_overlay.hidden = true;
+    advanceStory();
+    if (!activeStory && nodes.offline_overlay.hidden) finishModalInteraction();
+    return completed;
+  }
+
+  function advanceStoryStep() {
+    if (!activeStory) return null;
+    if (activeStory.kind !== 'scene') return closeActiveStory();
+    if (activeStory.choiceResponse) {
+      activeStory.choiceResponse = null;
+      activeStory.stepIndex += 1;
+    } else {
+      const step = activeStory.scene.steps[activeStory.stepIndex];
+      if (step.choices.length) return null;
+      activeStory.stepIndex += 1;
+    }
+    if (activeStory.stepIndex >= activeStory.scene.steps.length) return closeActiveStory();
+    renderActiveStory();
+    const focusTarget = nodes.story_choices.hidden
+      ? nodes.story_continue
+      : nodes.story_choices.querySelector('button');
+    focusWithoutScrolling(focusTarget);
+    return null;
+  }
+
+  function getActiveStory() {
+    return activeStory;
+  }
+
+  function canDismissStory() {
+    return activeStory?.kind !== 'scene' || activeStory.replay || activeStory.scene.blocking === false;
   }
 
   function showLotteryResult(result) {
@@ -1801,7 +2163,10 @@ function buildUi(root, database) {
     nodes.offline_overlay.hidden = true;
     if (storyPausedForOffline && activeStory) {
       nodes.story_overlay.hidden = false;
-      focusWithoutScrolling(nodes.story_continue);
+      const focusTarget = nodes.story_choices.hidden
+        ? nodes.story_continue
+        : nodes.story_choices.querySelector('button');
+      focusWithoutScrolling(focusTarget);
     } else {
       finishModalInteraction();
     }
@@ -1809,11 +2174,8 @@ function buildUi(root, database) {
   }
 
   function dismissStory() {
-    activeStory = null;
-    storyPausedForOffline = false;
-    nodes.story_overlay.hidden = true;
-    advanceStory();
-    if (!activeStory && nodes.offline_overlay.hidden) finishModalInteraction();
+    if (!canDismissStory()) return null;
+    return closeActiveStory();
   }
 
   function resetStoryQueue() {
@@ -1825,6 +2187,8 @@ function buildUi(root, database) {
     finishModalInteraction();
     lastLotteryResult = null;
     automationSummaries.clear();
+    blackstoneCoworkerSignature = '';
+    nodes.blackstone_coworker_grid.replaceChildren();
     nodes.company_name.value = '';
     nodes.store_status.textContent = 'Miller keeps the counter open from your first shift onward.';
     nodes.equipment_status.textContent = 'Purchase equipment at Miller\'s, then switch owned gear here.';
@@ -1843,6 +2207,11 @@ function buildUi(root, database) {
     showImpact,
     showAutomation,
     showMilestone,
+    showStoryScene,
+    chooseStory,
+    advanceStoryStep,
+    getActiveStory,
+    canDismissStory,
     showLotteryResult,
     showOfflineProgress,
     dismissOfflineProgress,
@@ -1872,6 +2241,12 @@ async function bootstrap() {
       ui.showAutomation(event.detail);
     }
     if (event.type === 'milestone') ui.showMilestone(event.detail);
+    if (event.type === 'story-scene') ui.showStoryScene(event.detail);
+    if (event.type === 'employment-promotion') ui.render(game);
+    if (event.type === 'employment-notice') {
+      ui.nodes.last_result.textContent = `${event.detail.speaker}: ${event.detail.text}`;
+    }
+    if (event.type === 'story-scene-complete') ui.render(game);
     if (event.type === 'lottery') ui.showLotteryResult(event.detail);
     if (event.type === 'offline-progress') ui.showOfflineProgress(event.detail);
     if (event.type === 'save') {
@@ -1918,7 +2293,28 @@ async function bootstrap() {
   ui.nodes.open_mines.addEventListener('click', () => { ui.render(game); ui.setView('mines'); });
   ui.nodes.open_store.addEventListener('click', () => { ui.render(game); ui.setView('store'); });
   ui.nodes.open_company.addEventListener('click', () => { ui.render(game); ui.setView('company'); });
-  ui.nodes.story_continue.addEventListener('click', () => ui.dismissStory());
+  ui.nodes.story_continue.addEventListener('click', () => {
+    const completed = ui.advanceStoryStep();
+    if (completed?.kind === 'scene' && !completed.replay) {
+      game.completeEmploymentScene(completed.scene.id);
+      ui.render(game);
+    }
+  });
+  ui.nodes.story_choices.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-story-choice-id]');
+    if (!button) return;
+    const active = ui.getActiveStory();
+    if (active?.kind !== 'scene') return;
+    const choice = active.scene.steps[active.stepIndex].choices.find(
+      (entry) => entry.id === button.dataset.storyChoiceId,
+    );
+    if (!choice) return;
+    if (!active.replay) {
+      const result = game.recordEmploymentStoryChoice(active.scene.id, choice.id);
+      if (!result.ok && result.reason !== 'already-selected') return;
+    }
+    ui.chooseStory(choice.id, choice);
+  });
   ui.nodes.story_overlay.addEventListener('click', (event) => {
     if (event.target === ui.nodes.story_overlay) ui.dismissStory();
   });
@@ -1931,7 +2327,13 @@ async function bootstrap() {
       ui.dismissOfflineProgress();
       return;
     }
-    if (event.key === 'Escape' && !ui.nodes.story_overlay.hidden) ui.dismissStory();
+    if (event.key === 'Escape' && !ui.nodes.story_overlay.hidden && ui.canDismissStory()) ui.dismissStory();
+  });
+
+  ui.nodes.history_list.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-replay-employment-scene]');
+    if (!button) return;
+    game.replayEmploymentScene(button.dataset.replayEmploymentScene);
   });
 
   ui.nodes.skills_grid.addEventListener('click', (event) => {
@@ -2112,11 +2514,15 @@ async function bootstrap() {
 
   ui.nodes.buyout.addEventListener('click', () => {
     const cost = database.config.employment.contractBuyoutCost;
-    if (!window.confirm(`Pay ${formatCurrency(cost)} to buy out your Blackstone employment contract?`)) return;
+    const status = game.getContractBuyoutStatus();
+    if (status.reason !== 'walkout-pending'
+      && !window.confirm(`Pay ${formatCurrency(cost)} to invoke the release clause? The payment is saved before The Walkout begins.`)) return;
     const result = game.buyOutContract();
     ui.nodes.last_result.textContent = result.ok
-      ? `Contract paid. You are now an independent miner, and all newly mined ore belongs to you.`
-      : `You still need ${formatCurrency(Math.max(0, result.cost - result.cash))} to buy out the contract.`;
+      ? `Payment recorded. Complete The Walkout; reloading will not charge you twice.`
+      : result.reason === 'contract-hidden'
+        ? 'The release clause has not been discovered yet.'
+        : `You still need ${formatCurrency(Math.max(0, result.cost - result.cash))} to buy out the contract.`;
     ui.render(game);
   });
 
