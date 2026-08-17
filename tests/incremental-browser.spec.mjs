@@ -754,7 +754,7 @@ test.describe('touch viewport', () => {
 
   test('miner target remains touch-sized and contained on a phone viewport', async ({ page }) => {
     await page.goto('/');
-    const storyDialogBox = await page.locator('.incremental-story-dialog').boundingBox();
+    const storyDialogBox = await page.locator('#incremental-story-overlay .incremental-story-dialog').boundingBox();
     expect(storyDialogBox.x).toBeGreaterThanOrEqual(0);
     expect(storyDialogBox.x + storyDialogBox.width).toBeLessThanOrEqual(390);
     const storyContinueBox = await page.locator('#incremental-story-continue').boundingBox();
