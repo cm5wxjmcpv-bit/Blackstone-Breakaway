@@ -34,6 +34,89 @@ function artForDeposit(name) {
   return match ? url(match[1]) : '';
 }
 
+function installStoryControls(root) {
+  const overlay = root.querySelector('#incremental-story-overlay');
+  const dialog = overlay?.querySelector('.incremental-story-dialog');
+  const continueButton = root.querySelector('#incremental-story-continue');
+  const storyArt = root.querySelector('#incremental-story-art');
+  const storyLocation = root.querySelector('#incremental-story-location');
+  if (!overlay || !dialog || !continueButton || dialog.dataset.topControlsInstalled) return;
+  dialog.dataset.topControlsInstalled = 'true';
+
+  const controls = document.createElement('div');
+  controls.className = 'incremental-story-top-controls';
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'incremental-story-top-close';
+  closeButton.textContent = 'Close';
+  controls.append(continueButton, closeButton);
+  dialog.prepend(controls);
+
+  let guardTimer = null;
+  const armClickGuard = (duration = 450) => {
+    dialog.classList.add('is-input-guarded');
+    clearTimeout(guardTimer);
+    guardTimer = setTimeout(() => dialog.classList.remove('is-input-guarded'), duration);
+  };
+
+  const isReplay = () => String(storyLocation?.textContent || '').startsWith('STORY REPLAY');
+  const isSimplePopup = () => Boolean(storyArt?.hidden);
+  const syncControls = () => {
+    if (!continueButton.hidden && continueButton.textContent !== 'Next') {
+      continueButton.textContent = 'Next';
+    }
+    const closable = isSimplePopup() || isReplay();
+    closeButton.disabled = !closable;
+    closeButton.setAttribute('aria-disabled', String(!closable));
+    closeButton.title = closable
+      ? 'Close this popup'
+      : 'This story scene must be completed before it can be closed.';
+  };
+
+  overlay.addEventListener('pointerdown', (event) => {
+    if (event.target !== overlay) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+  overlay.addEventListener('click', (event) => {
+    if (event.target !== overlay) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+
+  continueButton.addEventListener('click', () => {
+    armClickGuard(300);
+    queueMicrotask(syncControls);
+  });
+
+  closeButton.addEventListener('click', () => {
+    if (closeButton.disabled) return;
+    document.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Escape',
+      code: 'Escape',
+      bubbles: true,
+    }));
+  });
+
+  const observer = new MutationObserver((mutations) => {
+    const opened = mutations.some((mutation) => (
+      mutation.target === overlay
+      && mutation.type === 'attributes'
+      && mutation.attributeName === 'hidden'
+      && !overlay.hidden
+    ));
+    if (opened) armClickGuard();
+    syncControls();
+  });
+  observer.observe(overlay, { attributes: true, attributeFilter: ['hidden'] });
+  observer.observe(continueButton, { attributes: true, childList: true, subtree: true, attributeFilter: ['hidden'] });
+  if (storyArt) observer.observe(storyArt, { attributes: true, attributeFilter: ['hidden'] });
+  if (storyLocation) observer.observe(storyLocation, { childList: true, subtree: true });
+
+  syncControls();
+  if (!overlay.hidden) armClickGuard();
+}
+
 function install(root) {
   if (root.dataset.visualSyncInstalled) return;
   root.dataset.visualSyncInstalled = 'true';
@@ -42,6 +125,8 @@ function install(root) {
   const target = root.querySelector('#incremental-mining-target');
   const rock = root.querySelector('.incremental-rock');
   if (!stage || !miner || !target || !rock) return;
+
+  installStoryControls(root);
 
   stage.style.backgroundImage = `linear-gradient(180deg, rgba(6,5,5,.28), rgba(10,8,7,.70)), url("${background}")`;
   stage.style.backgroundPosition = 'center';
