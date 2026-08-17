@@ -49,7 +49,7 @@ jobs:
       - name: Assemble static game
         run: |
           mkdir _site
-          cp index.html standalone.css incremental.css .nojekyll _site/
+          cp index.html standalone.css incremental.css standalone-visual-sync.css .nojekyll _site/
           cp -R games src _site/
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
