@@ -2,7 +2,7 @@
 
 Blackstone Breakaway is a standalone browser-based mining incremental game. Begin as an underpaid Blackstone Mining Co. employee, buy out your contract, build an independent mining company, expand through deeper mines, and eventually acquire your former employer.
 
-Version 0.8 adds ten progressively richer mines, three connected skill trees, 23 level-gated equipment choices, seven fictional lottery tiers, automated XP training, and separately assigned worksites for Hired Miners, Mining Crews, and Mechanical Drills. Representative workers visibly mine their own deposits without taking over the player's personal rock face.
+Version 0.8.1 adds illustrated deposits, story scenes, a realistic miner, a mine backdrop, and an in-mine XP and cash HUD. It retains the ten progressively richer mines, three connected skill trees, 23 level-gated equipment choices, seven fictional lottery tiers, automated XP training, and separately assigned worksites for Hired Miners, Mining Crews, and Mechanical Drills.
 
 ## Play
 
