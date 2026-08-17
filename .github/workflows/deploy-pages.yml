@@ -34,7 +34,8 @@ jobs:
         run: npm run audit
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    # Publish the v0.9 review branch for user testing without merging it into main.
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/cinematic-story'
     needs: test
     runs-on: ubuntu-latest
     environment:
