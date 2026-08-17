@@ -206,6 +206,7 @@ test('company creation, scalable generators, upgrades, and deposit automation pe
   await page.goto('/');
   await page.locator('#incremental-story-continue').click();
   await page.addInitScript(() => {
+    Math.random = () => 0;
     if (sessionStorage.getItem('milestone-four-seeded')) return;
     const key = 'blackstone_breakaway_save_miner-incremental_slot_1';
     const save = JSON.parse(localStorage.getItem(key));
