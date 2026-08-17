@@ -1953,9 +1953,6 @@ body.incremental-game-mode #hud {
   .incremental-nav {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    position: sticky;
-    top: 104px;
-    z-index: 20;
   }
   .incremental-nav button {
     min-width: 0;

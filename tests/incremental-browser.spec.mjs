@@ -236,11 +236,26 @@ test('company creation, scalable generators, upgrades, and deposit automation pe
   await expect(page.locator('#incremental-create-company')).toBeDisabled();
   await page.locator('#incremental-company-name').fill('Freedom Forge Mining');
   await expect(page.locator('#incremental-create-company')).toBeEnabled();
-  await page.locator('#incremental-create-company').click();
+  const runtimeScroller = page.locator('#incremental-runtime');
+  const popupScrollTop = await runtimeScroller.evaluate((element) => {
+    const spacer = document.createElement('div');
+    spacer.id = 'popup-scroll-test-spacer';
+    spacer.style.height = '500px';
+    spacer.setAttribute('aria-hidden', 'true');
+    element.appendChild(spacer);
+    element.scrollTop = 180;
+    return element.scrollTop;
+  });
+  expect(popupScrollTop).toBeGreaterThan(0);
+  await page.locator('#incremental-create-company').evaluate((button) => button.click());
   await expect(page.locator('#incremental-story-title')).toHaveText('A Company of Your Own');
-  await page.locator('#incremental-story-continue').click();
+  await expect.poll(() => runtimeScroller.evaluate((element) => element.scrollTop)).toBe(popupScrollTop);
+  await page.locator('#incremental-story-continue').evaluate((button) => button.click());
   await expect(page.locator('#incremental-story-title')).toHaveText('Blackstone Expands');
-  await page.locator('#incremental-story-continue').click();
+  await expect.poll(() => runtimeScroller.evaluate((element) => element.scrollTop)).toBe(popupScrollTop);
+  await page.locator('#incremental-story-continue').evaluate((button) => button.click());
+  await expect.poll(() => runtimeScroller.evaluate((element) => element.scrollTop)).toBe(popupScrollTop);
+  await page.locator('#popup-scroll-test-spacer').evaluate((element) => element.remove());
   await expect(page.getByRole('heading', { name: 'Freedom Forge Mining' })).toBeVisible();
   await expect(page.locator('#incremental-company-level-summary')).toContainText('Company level 1');
   await expect(page.locator('#incremental-company-production')).toHaveText('0/sec');
@@ -671,6 +686,7 @@ test.describe('touch viewport', () => {
     await page.locator('#incremental-story-continue').click();
     const navButtons = page.locator('.incremental-nav [role="tab"]');
     await expect(navButtons).toHaveCount(6);
+    expect(await page.locator('.incremental-nav').evaluate((element) => getComputedStyle(element).position)).toBe('static');
     for (let index = 0; index < await navButtons.count(); index += 1) {
       const navButtonBox = await navButtons.nth(index).boundingBox();
       expect(navButtonBox.height).toBeGreaterThanOrEqual(44);

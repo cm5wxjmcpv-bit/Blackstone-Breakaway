@@ -548,6 +548,54 @@ function buildUi(root, database) {
   const crewCards = new Map();
   const automationSummaries = new Map();
   let lastAutomationFeedbackAt = 0;
+  let modalScrollPosition = null;
+  let modalReturnFocus = null;
+
+  function setRuntimeScroll(position) {
+    if (!position) return;
+    root.scrollLeft = position.left;
+    root.scrollTop = position.top;
+  }
+
+  function rememberModalScroll() {
+    if (modalScrollPosition) return;
+    modalScrollPosition = { left: root.scrollLeft, top: root.scrollTop };
+    const activeElement = document.activeElement;
+    modalReturnFocus = activeElement instanceof HTMLElement && root.contains(activeElement)
+      ? activeElement
+      : null;
+  }
+
+  function focusWithoutScrolling(element) {
+    if (!element) return;
+    const position = modalScrollPosition || { left: root.scrollLeft, top: root.scrollTop };
+    try {
+      element.focus({ preventScroll: true });
+    } catch {
+      element.focus();
+    }
+    setRuntimeScroll(position);
+    window.requestAnimationFrame(() => setRuntimeScroll(position));
+  }
+
+  function finishModalInteraction() {
+    if (!modalScrollPosition) return;
+    const position = modalScrollPosition;
+    const returnFocusIsVisible = modalReturnFocus?.isConnected
+      && !modalReturnFocus.closest('[hidden]');
+    const returnTarget = returnFocusIsVisible
+      ? modalReturnFocus
+      : root.querySelector('.incremental-nav [aria-selected="true"]');
+    try {
+      returnTarget?.focus({ preventScroll: true });
+    } catch {
+      returnTarget?.focus();
+    }
+    setRuntimeScroll(position);
+    window.requestAnimationFrame(() => setRuntimeScroll(position));
+    modalScrollPosition = null;
+    modalReturnFocus = null;
+  }
 
   nodes.title.textContent = config.ui.title || database.game.name;
   nodes.subtitle.textContent = config.ui.subtitle;
@@ -1688,7 +1736,10 @@ function buildUi(root, database) {
     nodes.story_text.textContent = activeStory.text;
     storyPausedForOffline = !nodes.offline_overlay.hidden;
     nodes.story_overlay.hidden = storyPausedForOffline;
-    if (!storyPausedForOffline) nodes.story_continue.focus();
+    if (!storyPausedForOffline) {
+      rememberModalScroll();
+      focusWithoutScrolling(nodes.story_continue);
+    }
   }
 
   function showMilestone(milestone) {
@@ -1705,6 +1756,7 @@ function buildUi(root, database) {
 
   function showOfflineProgress(result) {
     if (!result?.showSummary) return false;
+    rememberModalScroll();
     storyPausedForOffline = Boolean(activeStory);
     if (storyPausedForOffline) nodes.story_overlay.hidden = true;
     nodes.offline_time_away.textContent = formatDuration(result.timeAwaySeconds);
@@ -1741,7 +1793,7 @@ function buildUi(root, database) {
     }
     nodes.offline_note.textContent = notes.join(' ');
     nodes.offline_overlay.hidden = false;
-    nodes.offline_continue.focus();
+    focusWithoutScrolling(nodes.offline_continue);
     return true;
   }
 
@@ -1749,9 +1801,9 @@ function buildUi(root, database) {
     nodes.offline_overlay.hidden = true;
     if (storyPausedForOffline && activeStory) {
       nodes.story_overlay.hidden = false;
-      nodes.story_continue.focus();
+      focusWithoutScrolling(nodes.story_continue);
     } else {
-      nodes.mining_target.focus();
+      finishModalInteraction();
     }
     storyPausedForOffline = false;
   }
@@ -1761,6 +1813,7 @@ function buildUi(root, database) {
     storyPausedForOffline = false;
     nodes.story_overlay.hidden = true;
     advanceStory();
+    if (!activeStory && nodes.offline_overlay.hidden) finishModalInteraction();
   }
 
   function resetStoryQueue() {
@@ -1769,6 +1822,7 @@ function buildUi(root, database) {
     storyPausedForOffline = false;
     nodes.story_overlay.hidden = true;
     nodes.offline_overlay.hidden = true;
+    finishModalInteraction();
     lastLotteryResult = null;
     automationSummaries.clear();
     nodes.company_name.value = '';
